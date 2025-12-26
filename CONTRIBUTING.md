@@ -12,10 +12,13 @@ Thank you for your interest in contributing to File Locker!
 
 ### First Time Setup
 ```bash
-git clone [https://github.com/YOUR_USERNAME/file-locker.git](https://github.com/YOUR_USERNAME/file-locker.git)
+git clone https://github.com/YOUR_USERNAME/file-locker.git
 cd file-locker
-make dev-setup
 
+# Run setup script
+make dev-setup
+# or
+./scripts/setup-dev.sh
 ```
 
 ## Development Setup

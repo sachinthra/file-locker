@@ -17,6 +17,43 @@ A secure file encryption utility. File Locker provides both command-line and gra
 - **Storage:** MinIO (Object Storage)
 - **Database:** Redis (Session/Metadata)
 
+## Port Configuration
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| HTTP Server | 9010 | Web UI, REST API |
+| gRPC Server | 9011 | Metadata operations |
+| MinIO API | 9012 | Object storage API |
+| MinIO Console | 9013 | MinIO dashboard |
+| Redis | 6379 | Cache (default) |
+
+## CLI Command Reference
+
+```bash
+# Authentication
+filelocker login                    # Login to server
+filelocker logout                   # Logout
+
+# File Operations
+filelocker upload <file>            # Upload and encrypt file
+filelocker upload <file> --expire 1h  # Upload with expiration
+filelocker list                     # List all files
+filelocker search <query>           # Search files
+filelocker download <file-id>       # Download and decrypt
+filelocker delete <file-id>         # Delete file
+filelocker info <file-id>           # Show file metadata
+
+# Streaming
+filelocker stream <file-id>         # Stream video/audio
+
+# Batch Operations
+filelocker upload file1 file2 file3 # Upload multiple files
+
+# Configuration
+filelocker config set server.url http://localhost:9010
+filelocker config show              # Show current configuration
+```
+
 ## Implementation Roadmap
 
 ### Phase 1: Core Backend
