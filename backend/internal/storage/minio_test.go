@@ -7,7 +7,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/sachinthra/file-locker/internal/config"
+	"github.com/sachinthra/file-locker/backend/internal/config"
 )
 
 func getConfig() *config.Config {

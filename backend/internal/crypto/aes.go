@@ -4,73 +4,56 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 	"io"
-	"log"
 )
 
 // GenerateKey generates a random 256-bit key
 func GenerateKey() ([]byte, error) {
-	// 1. Create a 32-byte (256-bit) slice
 	key := make([]byte, 32)
-
-	// 2. Use crypto/rand.Read() to fill it with random bytes
 	_, err := rand.Read(key)
 	if err != nil {
-		log.Fatalln(err)
-		return nil, err
+		return nil, fmt.Errorf("failed to generate key: %w", err)
 	}
-	// 3. Return the key
 	return key, nil
 }
 
 // EncryptStream creates a streaming encryptor for large files
 func EncryptStream(plaintext io.Reader, key []byte) (io.Reader, error) {
-	// 1. Create AES cipher block using aes.NewCipher(key)
-	// 2. Create GCM mode using cipher.NewGCM(block) or similar stream cipher
-	//    *Note:* Standard GCM is authenticated but not stream-friendly for HUGE files in one go without loading into RAM.
-	//    For true streaming of huge files with minimal RAM, consider:
-	//    - Using AES-CTR (Counter Mode) which turns block cipher into stream cipher.
-	//    - OR chunking the file and encrypting each chunk with GCM (more complex but authenticated).
-	//
-	//    *Simpler Approach for this project (Stream Cipher):*
-	//    1. block, _ := aes.NewCipher(key)
-	//    2. iv := make([]byte, aes.BlockSize)
-	//    3. io.ReadFull(rand.Reader, iv)
-	//    4. stream := cipher.NewCTR(block, iv)
-	//    5. Return a reader that:
-	//       - Reads chunk from plaintext
-	//       - XORs with stream
-	//       - Prepend IV to output stream
+	// Validate key length before creating cipher
+	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+		return nil, fmt.Errorf("invalid AES key length: got %d bytes, need 16, 24, or 32", len(key))
+	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		log.Fatalln(err)
-		return nil, err
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
+
 	iv := make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		log.Fatalln(err)
-		return nil, err
+		return nil, fmt.Errorf("failed to generate IV: %w", err)
 	}
-	stream := cipher.NewCTR(block, iv)
 
-	// Create a pipe to connect plaintext reader and encrypted output
+	stream := cipher.NewCTR(block, iv)
 	pr, pw := io.Pipe()
 
-	// Write IV first to the pipe
 	go func() {
 		defer pw.Close()
+
+		// Write IV first
 		if _, err := pw.Write(iv); err != nil {
-			log.Fatalln(err)
+			pw.CloseWithError(fmt.Errorf("failed to write IV: %w", err))
 			return
 		}
+
 		buf := make([]byte, 4096)
 		for {
 			n, err := plaintext.Read(buf)
 			if n > 0 {
-				encrypted := make([]byte, n)
-				stream.XORKeyStream(encrypted, buf[:n])
-				if _, err := pw.Write(encrypted); err != nil {
-					log.Fatalln(err)
+				stream.XORKeyStream(buf[:n], buf[:n]) // Reuse buffer
+				if _, writeErr := pw.Write(buf[:n]); writeErr != nil {
+					pw.CloseWithError(fmt.Errorf("failed to write encrypted data: %w", writeErr))
 					return
 				}
 			}
@@ -78,11 +61,114 @@ func EncryptStream(plaintext io.Reader, key []byte) (io.Reader, error) {
 				break
 			}
 			if err != nil {
-				log.Fatalln(err)
+				pw.CloseWithError(fmt.Errorf("failed to read plaintext: %w", err))
 				return
 			}
 		}
 	}()
 
 	return pr, nil
+}
+
+// DecryptStream creates a streaming decryptor
+func DecryptStream(ciphertext io.Reader, key []byte) (io.Reader, error) {
+	// Validate key length before creating cipher
+	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+		return nil, fmt.Errorf("invalid AES key length: got %d bytes, need 16, 24, or 32", len(key))
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(ciphertext, iv); err != nil {
+		return nil, fmt.Errorf("failed to read IV: %w", err)
+	}
+
+	stream := cipher.NewCTR(block, iv)
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+
+		buf := make([]byte, 4096)
+		for {
+			n, err := ciphertext.Read(buf)
+			if n > 0 {
+				stream.XORKeyStream(buf[:n], buf[:n]) // Reuse buffer
+				if _, writeErr := pw.Write(buf[:n]); writeErr != nil {
+					pw.CloseWithError(fmt.Errorf("failed to write decrypted data: %w", writeErr))
+					return
+				}
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				pw.CloseWithError(fmt.Errorf("failed to read ciphertext: %w", err))
+				return
+			}
+		}
+	}()
+
+	return pr, nil
+}
+
+// EncryptBytes encrypts small data (for keys, metadata, etc.)
+func EncryptBytes(plaintext, key []byte) ([]byte, error) {
+	// Validate key length before creating cipher
+	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+		return nil, fmt.Errorf("invalid AES key length: got %d bytes, need 16, 24, or 32", len(key))
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, fmt.Errorf("failed to generate nonce: %w", err)
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
+}
+
+// DecryptBytes decrypts small data
+func DecryptBytes(ciphertext, key []byte) ([]byte, error) {
+	// Validate key length before creating cipher
+	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+		return nil, fmt.Errorf("invalid AES key length: got %d bytes, need 16, 24, or 32", len(key))
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt data: %w", err)
+	}
+
+	return plaintext, nil
 }
