@@ -1,0 +1,12 @@
+bin/
+*DS_Store
+.vscode
+coverage/*
+*/coverage/*
+.idea
+*.cov
+*.swp
+build/
+*.db
+*.public
+*/vendor/*
