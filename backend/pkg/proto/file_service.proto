@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package filelocker;
+option go_package = ".";
+
+// FileService handles file metadata operations
+service FileService {
+  rpc GetFileMetadata(FileRequest) returns (FileMetadata);
+  rpc ListFiles(ListRequest) returns (FileList);
+  rpc UpdateTags(UpdateTagsRequest) returns (FileMetadata);
+  rpc SetExpiration(ExpirationRequest) returns (FileMetadata);
+}
+
+message FileRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message FileMetadata {
+  string file_id = 1;
+  string user_id = 2;
+  string file_name = 3;
+  string mime_type = 4;
+  int64 size = 5;
+  int64 encrypted_size = 6;
+  string created_at = 7;
+  string expires_at = 8;
+  repeated string tags = 9;
+  int32 download_count = 10;
+}
+
+message ListRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message FileList {
+  repeated FileMetadata files = 1;
+  int32 total = 2;
+}
+
+message UpdateTagsRequest {
+    string file_id = 1;
+    string user_id = 2;
+    repeated string tags = 3;
+}
+
+message ExpirationRequest {
+    string file_id = 1;
+    string user_id = 2;
+    string expires_at = 3; // ISO string
+}
