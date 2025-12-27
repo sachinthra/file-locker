@@ -42,6 +42,26 @@ func NewRedisCache(addr, password string, db int) (*RedisCache, error) {
 	return &RedisCache{client: rdb}, nil
 }
 
+// Basic key-value operations
+
+func (r *RedisCache) Set(ctx context.Context, key string, value string, expiration time.Duration) error {
+	return r.client.Set(ctx, key, value, expiration).Err()
+}
+
+func (r *RedisCache) Get(ctx context.Context, key string) (string, error) {
+	return r.client.Get(ctx, key).Result()
+}
+
+func (r *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
+	result, err := r.client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check key existence: %w", err)
+	}
+	return result > 0, nil
+}
+
+// File metadata management functions
+
 func (r *RedisCache) SaveFileMetadata(ctx context.Context, fileID string, metadata *FileMetadata, expiration time.Duration) error {
 	data, err := json.Marshal(metadata)
 	if err != nil {
@@ -66,25 +86,45 @@ func (r *RedisCache) GetFileMetadata(ctx context.Context, fileID string) (*FileM
 	return &metadata, nil
 }
 
-func (r *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
-	result, err := r.client.Exists(ctx, key).Result()
-	if err != nil {
-		return false, fmt.Errorf("failed to check key existence: %w", err)
-	}
-	return result > 0, nil
-}
+// Rate limiting functions
 
-func (r *RedisCache) Incr(ctx context.Context, key string) (int64, error) {
-	result, err := r.client.Incr(ctx, key).Result()
+func (r *RedisCache) IncrRateLimit(ctx context.Context, userID string, currentWindow int64) (int64, error) {
+	rateLimitKey := fmt.Sprintf("ratelimit:%s:%d", userID, currentWindow)
+	result, err := r.client.Incr(ctx, rateLimitKey).Result()
 	if err != nil {
 		return 0, fmt.Errorf("failed to increment key: %w", err)
 	}
 	return result, nil
 }
 
-func (r *RedisCache) Set(ctx context.Context, key, value string, expiration time.Duration) error {
-	return r.client.Set(ctx, key, value, expiration).Err()
+func (r *RedisCache) SetRateLimit(ctx context.Context, userID string, currentWindow int64, value string, expiration time.Duration) error {
+	rateLimitKey := fmt.Sprintf("ratelimit:%s:%d", userID, currentWindow)
+	return r.client.Set(ctx, rateLimitKey, value, expiration).Err()
 }
+
+// User management functions
+
+func (r *RedisCache) UserExists(ctx context.Context, username string) (bool, error) {
+	userKey := "user:" + username
+	result, err := r.client.Exists(ctx, userKey).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check key existence: %w", err)
+	}
+	return result > 0, nil
+}
+
+func (r *RedisCache) SaveUser(ctx context.Context, username, userID, hashedPassword, email string, expiration time.Duration) error {
+	userKey := "user:" + username
+	userData := userID + ":" + hashedPassword + ":" + email
+	return r.client.Set(ctx, userKey, userData, expiration).Err()
+}
+
+func (r *RedisCache) GetUser(ctx context.Context, username string) (string, error) {
+	userKey := "user:" + username
+	return r.client.Get(ctx, userKey).Result()
+}
+
+// File metadata management functions
 
 func (r *RedisCache) DeleteFileMetadata(ctx context.Context, fileID string) error {
 	return r.client.Del(ctx, "file:"+fileID).Err()
@@ -97,6 +137,8 @@ func (r *RedisCache) AddFileToUserIndex(ctx context.Context, userID, fileID stri
 func (r *RedisCache) GetUserFiles(ctx context.Context, userID string) ([]string, error) {
 	return r.client.SMembers(ctx, "user:"+userID+":files").Result()
 }
+
+// Session management functions
 
 func (r *RedisCache) SaveSession(ctx context.Context, token, userID string, expiration time.Duration) error {
 	return r.client.Set(ctx, "session:"+token, userID, expiration).Err()

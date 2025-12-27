@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -55,8 +56,8 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user from Redis
-	userKey := "user:" + req.Username
-	userData, err := h.redisCache.GetSession(r.Context(), userKey)
+	userData, err := h.redisCache.GetUser(r.Context(), req.Username)
+	log.Printf("UserDate: %v", userData)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
@@ -86,8 +87,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save session in Redis (24 hour expiry)
-	sessionKey := "session:" + userID
-	if err := h.redisCache.SaveSession(r.Context(), sessionKey, token, 24*time.Hour); err != nil {
+	if err := h.redisCache.SaveSession(r.Context(), token, userID, 24*time.Hour); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
@@ -123,8 +123,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user already exists
-	userKey := "user:" + req.Username
-	exists, err := h.redisCache.Exists(r.Context(), userKey)
+	exists, err := h.redisCache.UserExists(r.Context(), req.Username)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to check user existence")
 		return
@@ -145,8 +144,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	userID := uuid.New().String()
 
 	// Save user to Redis (format: "userID:hashedPassword:email")
-	userData := userID + ":" + string(hashedPassword) + ":" + req.Email
-	if err := h.redisCache.Set(r.Context(), userKey, userData, 0); err != nil {
+	if err := h.redisCache.SaveUser(r.Context(), req.Username, userID, string(hashedPassword), req.Email, 0); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
@@ -158,9 +156,10 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Token %v", token)
+
 	// Save session
-	sessionKey := "session:" + userID
-	if err := h.redisCache.SaveSession(r.Context(), sessionKey, token, 24*time.Hour); err != nil {
+	if err := h.redisCache.SaveSession(r.Context(), token, userID, 24*time.Hour); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
@@ -196,11 +195,13 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete session from Redis
-	sessionKey := "session:" + claims.UserID
-	if err := h.redisCache.DeleteSession(r.Context(), sessionKey); err != nil {
+	if err := h.redisCache.DeleteSession(r.Context(), token); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to delete session")
 		return
 	}
+
+	// Keep claims for potential logging
+	_ = claims
 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "Logged out successfully",

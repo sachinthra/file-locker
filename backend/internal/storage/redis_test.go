@@ -300,7 +300,7 @@ func TestIncr(t *testing.T) {
 	key := "test-incr-key"
 
 	// First increment
-	count, err := redis.Incr(ctx, key)
+	count, err := redis.IncrRateLimit(ctx, key, 0)
 	if err != nil {
 		t.Fatalf("Failed to increment: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestIncr(t *testing.T) {
 	}
 
 	// Second increment
-	count, err = redis.Incr(ctx, key)
+	count, err = redis.IncrRateLimit(ctx, key, 0)
 	if err != nil {
 		t.Fatalf("Failed to increment: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestIncr(t *testing.T) {
 	}
 
 	// Third increment
-	count, err = redis.Incr(ctx, key)
+	count, err = redis.IncrRateLimit(ctx, key, 0)
 	if err != nil {
 		t.Fatalf("Failed to increment: %v", err)
 	}

@@ -50,16 +50,21 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// 5. Check if session exists in Redis
-		sessionKey := fmt.Sprintf("session:%s", claims.UserID)
+		// 5. Check if session exists in Redis (using token as key)
 		ctx := context.Background()
-		exists, err := a.redisCache.Exists(ctx, sessionKey)
-		if err != nil || !exists {
+		sessionUserID, err := a.redisCache.GetSession(ctx, tokenString)
+		if err != nil {
 			http.Error(w, `{"error":"Session not found or expired"}`, http.StatusUnauthorized)
 			return
 		}
 
-		// 6. Set userID in context
+		// 6. Verify session userID matches token claims
+		if sessionUserID != claims.UserID {
+			http.Error(w, `{"error":"Session mismatch"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// 7. Set userID in context
 		ctx = context.WithValue(r.Context(), "userID", claims.UserID)
 
 		// 7. Call next handler with updated context
@@ -80,12 +85,11 @@ func (a *AuthMiddleware) RateLimitMiddleware(requests int, window time.Duration)
 
 			// 2. Key: "ratelimit:{userID}:{window}"
 			currentWindow := time.Now().Unix() / int64(window.Seconds())
-			rateLimitKey := fmt.Sprintf("ratelimit:%s:%d", userID, currentWindow)
 
 			ctx := context.Background()
 
 			// 3. Increment counter with INCR
-			count, err := a.redisCache.Incr(ctx, rateLimitKey)
+			count, err := a.redisCache.IncrRateLimit(ctx, userID.(string), currentWindow)
 			if err != nil {
 				http.Error(w, `{"error":"Rate limit check failed"}`, http.StatusInternalServerError)
 				return
@@ -93,7 +97,7 @@ func (a *AuthMiddleware) RateLimitMiddleware(requests int, window time.Duration)
 
 			// 4. Set expiration on first request
 			if count == 1 {
-				err = a.redisCache.Set(ctx, rateLimitKey, "1", window)
+				err = a.redisCache.SetRateLimit(ctx, userID.(string), currentWindow, "1", window)
 				if err != nil {
 					// Log error but don't block request
 					fmt.Printf("Failed to set expiration: %v\n", err)
