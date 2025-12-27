@@ -1,0 +1,155 @@
+openapi: 3.0.0
+info:
+  title: File Locker API
+  description: Secure file storage and streaming API
+  version: 1.0.0
+servers:
+  - url: http://localhost:9010/api/v1
+    description: Local Development Server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      security: [] # Public endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, email]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                email: { type: string, format: email }
+      responses:
+        201:
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/login:
+    post:
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /upload:
+    post:
+      summary: Upload a file
+      description: Uploads a file with optional encryption and auto-expiry.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                tags:
+                  type: string
+                  description: Comma-separated tags
+                expire_after:
+                  type: integer
+                  description: Seconds until expiration
+      responses:
+        201:
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+
+  /files:
+    get:
+      summary: List user files
+      responses:
+        200:
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileMetadata'
+
+  /download/{id}:
+    get:
+      summary: Download a file
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: File stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /stream/{id}:
+    get:
+      summary: Stream a video file
+      description: Supports HTTP Range requests for seeking.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: token
+          schema: { type: string }
+          description: JWT token for browser-based streaming
+      responses:
+        206:
+          description: Partial content (Video Chunk)
+
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user_id: { type: string }
+        email: { type: string }
+    
+    FileMetadata:
+      type: object
+      properties:
+        file_id: { type: string }
+        file_name: { type: string }
+        size: { type: integer }
+        mime_type: { type: string }
+        created_at: { type: string, format: date-time }
+        download_count: { type: integer }

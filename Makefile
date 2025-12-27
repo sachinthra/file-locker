@@ -53,6 +53,7 @@ install: install-backend install-frontend ## Install all dependencies
 # -----------------------------------------------------------------
 build-backend: ## Build Go backend binary
 	@echo "$(BLUE)Building backend...$(NC)"
+	mkdir -p backend/bin
 	cd backend && go build -o bin/filelocker cmd/server/main.go
 	cd backend && go build -o bin/fl cmd/cli/main.go
 	@echo "$(GREEN)Backend built successfully!$(NC)"
@@ -82,7 +83,7 @@ dev: sync-config ## Start both backend and frontend locally (Parallel)
 # -----------------------------------------------------------------
 # DOCKER OPERATIONS
 # -----------------------------------------------------------------
-docker-build: ## Build Docker images
+docker-build: sync-config ## Build Docker images
 	@echo "$(BLUE)Building Docker images...$(NC)"
 	docker-compose build
 

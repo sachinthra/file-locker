@@ -21,6 +21,7 @@ import (
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"github.com/sachinthra/file-locker/backend/internal/worker"
 	pb "github.com/sachinthra/file-locker/backend/pkg/proto"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"google.golang.org/grpc"
 )
 
@@ -110,6 +111,17 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
+
+	// You also need to serve the static YAML file itself
+	r.Get("/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "docs/openapi.yaml")
+	})
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:9010/docs/openapi.yaml"), // pointing to your YAML
+	))
+
+	log.Println("✓ Swagger documentation endpoint configured at /swagger/index.html")
 
 	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
