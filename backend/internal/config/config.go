@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -48,16 +51,19 @@ type StorageConfig struct {
 }
 
 type MinIOConfig struct {
-	Endpoint  string `mapstructure:"endpoint"`
-	AccessKey string `mapstructure:"access_key"`
-	SecretKey string `mapstructure:"secret_key"`
-	Bucket    string `mapstructure:"bucket"`
-	UseSSL    bool   `mapstructure:"use_ssl"`
-	Region    string `mapstructure:"region"`
+	Endpoint    string `mapstructure:"endpoint"`
+	PortAPI     int    `mapstructure:"port_api"`     // For Docker Port Mapping
+	PortConsole int    `mapstructure:"port_console"` // For Docker Port Mapping
+	AccessKey   string `mapstructure:"access_key"`
+	SecretKey   string `mapstructure:"secret_key"`
+	Bucket      string `mapstructure:"bucket"`
+	UseSSL      bool   `mapstructure:"use_ssl"`
+	Region      string `mapstructure:"region"`
 }
 
 type RedisConfig struct {
 	Addr     string `mapstructure:"addr"`
+	Port     int    `mapstructure:"port"` // For Docker Port Mapping
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
 }
@@ -92,42 +98,41 @@ type LoggingConfig struct {
 
 // LoadConfig loads configuration from file and environment
 func LoadConfig() (*Config, error) {
-	// 1. Set config file name and paths
-	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 
-	// Add multiple possible config paths to handle different working directories
-	viper.AddConfigPath(".")                // Config in current directory
-	viper.AddConfigPath("./configs")        // Running from project root
-	viper.AddConfigPath("../configs")       // Running from backend/
-	viper.AddConfigPath("../../configs")    // Running from backend/internal/
-	viper.AddConfigPath("../../../configs") // Running from backend/internal/config/
+	// 1. Check for explicit path via Environment Variable (Used by Docker/Makefile)
+	configPath := os.Getenv("CONFIG_PATH")
+
+	if configPath != "" {
+		viper.SetConfigFile(configPath)
+		fmt.Printf("🔍 Loading configuration from CONFIG_PATH: %s\n", configPath)
+	} else {
+		viper.AddConfigPath(".") // Check current directory
+		// Default paths for local development (go run main.go)
+		viper.AddConfigPath("./configs") // Check ./configs
+		// viper.AddConfigPath("../configs") // Check ../configs (if running from cmd/)
+
+		viper.AddConfigPath("/etc/file-locker")
+		viper.AddConfigPath("/usr/local/etc/file-locker")
+		viper.AddConfigPath("/opt/file-locker/configs")
+	}
 
 	// 2. Read the config file
 	if err := viper.ReadInConfig(); err != nil {
-		// Config file is optional, just log if not found
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, err
-		}
+		return nil, fmt.Errorf("config file not found: %w", err)
 	}
 
-	// 3. Also try to load .env file (optional) - try multiple paths
-	envPaths := []string{".env", "../.env", "../../.env", "../../../.env"}
-	for _, envPath := range envPaths {
-		viper.SetConfigFile(envPath)
-		viper.MergeInConfig() // Merge instead of replace, ignore errors
-	}
+	fmt.Printf("✅ Configuration loaded from: %s\n", viper.ConfigFileUsed())
 
-	// 4. Read environment variables (override file values)
-	viper.AutomaticEnv()
+	// 3. Setup Environment Variable Overrides
+	// This allows Docker to inject "minio:9000" instead of "localhost:9012"
 	viper.SetEnvPrefix("FILELOCKER")
 
-	// 5. Set defaults
-	viper.SetDefault("server.port", 9010)
-	viper.SetDefault("server.grpc_port", 9011)
-	viper.SetDefault("server.host", "0.0.0.0")
+	// Crucial: Replace dots with underscores (storage.minio.endpoint -> STORAGE_MINIO_ENDPOINT)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// 6. Unmarshal into Config struct
+	viper.AutomaticEnv()
+
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err

@@ -1,158 +1,234 @@
-# File Locker
+# File Locker 🔐
 
 <div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://golang.org)
-[![Docker](https://img.shields.io/badge/Docker-20.10+-2496ED?logo=docker)](https://docker.com)
+**A secure, self-hosted file encryption and streaming server.**
 
-**A secure, self-hosted file encryption and streaming utility.**
+[Features](https://www.google.com/search?q=%23-features) • [Quick Start](https://www.google.com/search?q=%23-quick-start) • [Configuration](https://www.google.com/search?q=%23%25EF%25B8%258F-configuration) • [API Documentation](https://www.google.com/search?q=%23-api-documentation) • [Testing](https://www.google.com/search?q=%23-testing)
 
 </div>
 
 ---
 
-## Overview
+## 📋 Overview
 
-File Locker is a robust file encryption server. It encrypts your files on the server-side before storing them, ensuring your data is safe at rest. It features a modern web interface with drag-and-drop support, video streaming capabilities, and a CLI for advanced users.
+File Locker is a robust file encryption server designed for privacy and performance. It automatically encrypts files upon upload using **AES-256-GCM** (or CTR for streaming) before storing them in **MinIO**. It features a modern web interface, secure video streaming capabilities, and a developer-friendly API.
 
-## Features
+## ✨ Features
 
-- 🔐 **Server-Side Encryption:** AES-256-GCM encryption handles everything automatically.
-- 🎬 **Secure Streaming:** Watch encrypted videos directly in the browser without downloading.
-- 🚀 **High Performance:** Go backend with MinIO storage for speed and scalability.
-- 📤 **Easy Uploads:** Drag-and-drop interface with batch processing and progress bars.
-- ⏲️ **Auto-Delete:** Set files to automatically expire and vanish after a set time.
-- 📦 **Docker Ready:** Deploy in minutes with Docker Compose.
+* 🔐 **Server-Side Encryption:** AES-256 encryption handles everything automatically at rest.
+* 🎬 **Secure Streaming:** Watch encrypted videos directly in the browser with seeking support (HTTP Range requests).
+* 🚀 **High Performance:** Go backend with MinIO object storage and Redis caching.
+* 🐳 **Docker Ready:** Deploy in minutes with a "Single Source of Truth" configuration.
+* 📦 **Batch Operations:** Drag-and-drop interface for multiple file uploads.
+* ⏱️ **Auto-Cleanup:** Configurable automatic deletion of expired files.
 
-## Quick Start
+---
 
-### Method 1: Docker Compose (Recommended)
+## 🚀 Quick Start
 
-```bash
-git clone [https://github.com/](https://github.com/)[username]/file-locker.git
-cd file-locker
+### Prerequisites
 
-# Start all services (App, MinIO, Redis)
-docker-compose up -d
+* **Docker** & **Docker Compose**
+* **Make** (Optional, but recommended)
 
-# Access the web interface
-# Open your browser to http://localhost:9010
-
-```
-
-### Method 2: Build from Source
+### 1. Clone & Setup
 
 ```bash
-# Clone repository
 git clone https://github.com/[username]/file-locker.git
 cd file-locker
 
-# Build backend
-cd backend
-go build -o filelocker cmd/server/main.go
+# Run the setup script to check dependencies
+make dev-setup
 
-# Build frontend
-cd ../frontend
-npm install
-npm run build
-
-# Run with docker-compose
-cd ..
-docker-compose up -d
 ```
 
-## CLI Usage
+### 2. Start Services
+
+This command syncs your config, builds images, and starts the stack.
 
 ```bash
-# Upload a file (encrypts and stores on server)
-filelocker upload my-video.mp4
-# or with short alias
-fl upload my-video.mp4
+make docker-up
 
-# Upload with auto-delete (expires after 1 hour)
-filelocker upload document.pdf --expire 1h
-
-# Upload multiple files (batch operation)
-filelocker upload file1.jpg file2.png file3.pdf
-
-# List all your files
-filelocker list
-
-# Search for files
-filelocker search "vacation"
-
-# Download and decrypt a file
-filelocker download <file-id>
-
-# Get file info without downloading
-filelocker info <file-id>
-
-# Delete a file
-filelocker delete <file-id>
-
-# Stream video directly (opens in browser)
-filelocker stream <file-id>
 ```
 
-## Architecture
+Access the services:
 
-File Locker uses a standard **Server-Side Encryption** architecture:
+* **Web UI:** [http://localhost:9010](https://www.google.com/search?q=http://localhost:9010)
+* **MinIO Console:** [http://localhost:9013](https://www.google.com/search?q=http://localhost:9013) (User/Pass: `minioadmin`)
+* **API Health:** [http://localhost:9010/health](https://www.google.com/search?q=http://localhost:9010/health)
 
-* **Frontend:** Preact app communicating via REST (Files) and gRPC (Metadata).
-* **Backend:** Go server handling encryption streams.
-* **Storage:** MinIO stores the encrypted blobs.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details and [IMPLEMENTATION.md](IMPLEMENTATION.md) for developer guides.
-
-## Configuration
-
-### Environment Variables
+### 3. Stop Services
 
 ```bash
-# Server Configuration
-SERVER_PORT=9010              # HTTP/REST API port
-GRPC_PORT=9011                # gRPC metadata service port
+make docker-down
 
-# MinIO Configuration
-MINIO_ENDPOINT=localhost:9012  # MinIO API endpoint
-MINIO_CONSOLE=localhost:9013   # MinIO web console
-MINIO_ACCESS_KEY=minioadmin    # MinIO access key
-MINIO_SECRET_KEY=minioadmin    # MinIO secret key
-MINIO_BUCKET=filelocker        # Bucket name for encrypted files
-
-# Redis Configuration
-REDIS_ADDR=localhost:6379      # Redis address
-REDIS_PASSWORD=                # Redis password (optional)
-REDIS_DB=0                     # Redis database number
-
-# Security
-JWT_SECRET=your-secret-key-here  # Change in production!
-SESSION_TIMEOUT=3600             # Session timeout in seconds
-AUTO_DELETE_ENABLED=true         # Enable auto-delete feature
 ```
 
-### Port Reference
+---
 
-| Service | Port | Purpose |
-|---------|------|----------|
-| HTTP Server | 9010 | Web UI, File uploads/downloads |
-| gRPC Server | 9011 | Metadata API, control operations |
-| MinIO API | 9012 | Object storage API |
-| MinIO Console | 9013 | MinIO web dashboard |
-| Redis | 6379 | Session/metadata cache |
+## ⚙️ Configuration
 
-## Roadmap
+We use a **Single Source of Truth** strategy. You only edit **one file**: [`configs/config.yaml`](https://www.google.com/search?q=configs/config.yaml).
 
-See [Design.md](Design.md) for the detailed implementation roadmap.
+### Standard Config (`configs/config.yaml`)
 
-## Contributing
+```yaml
+server:
+  port: 9010          # Web UI & API Port
+  grpc_port: 9011     # Internal gRPC Port
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md).
+storage:
+  minio:
+    endpoint: "localhost:9012" # Host-accessible endpoint
+    port_api: 9012             # Docker maps 9012 -> 9000
+    port_console: 9013         # Docker maps 9013 -> 9001
 
-## License
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+*Note: When you run `make docker-up`, a script automatically syncs these ports to Docker Compose.*
+
+---
+
+## 📚 API Documentation & Manual Testing
+
+You can test the API using `curl`. Set these variables first:
+
+```bash
+# Setup
+export API_URL="http://localhost:9010/api/v1"
+
+```
+
+### 1. Authentication
+
+**Register:**
+
+```bash
+curl -X POST "$API_URL/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin", "password":"password123", "email":"admin@local.host"}'
+
+```
+
+**Login (Get Token):**
+
+```bash
+# Save token to variable
+export TOKEN=$(curl -s -X POST "$API_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin", "password":"password123"}' | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
+
+echo "Token: $TOKEN"
+
+```
+
+### 2. File Operations
+
+**Upload File:**
+
+```bash
+# Create dummy file
+echo "This is a secret test file" > secret.txt
+
+# Upload
+curl -X POST "$API_URL/upload" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@secret.txt" \
+  -F "tags=test,demo"
+
+```
+
+**List Files:**
+
+```bash
+curl -s "$API_URL/files" -H "Authorization: Bearer $TOKEN" | json_pp
+
+```
+
+**Get File ID:**
+
+```bash
+# Extract the first file ID from the list
+export FILE_ID=$(curl -s "$API_URL/files" -H "Authorization: Bearer $TOKEN" | grep -o '"file_id":"[^"]*' | head -1 | grep -o '[^"]*$')
+echo "File ID: $FILE_ID"
+
+```
+
+**Download File:**
+
+```bash
+curl -O -J \
+  -H "Authorization: Bearer $TOKEN" \
+  "$API_URL/download/$FILE_ID"
+
+```
+
+### 3. Video Streaming Test
+
+If you uploaded a video file, you can test streaming support (Range requests).
+
+```bash
+# Fetch the first 1MB only (Test Seeking)
+curl -v \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Range: bytes=0-1048576" \
+  "$API_URL/stream/$FILE_ID" > video_chunk.mp4
+
+```
+
+---
+
+## 🛠️ Development Workflow
+
+### Directory Structure
+
+```
+.
+├── backend/            # Go Backend
+│   ├── cmd/            # Entry points
+│   └── internal/       # Business logic (API, Auth, Crypto)
+├── frontend/           # Preact Frontend
+├── configs/            # Configuration (SSOT)
+├── scripts/            # Helper scripts
+└── docker-compose.yml  # Container definition
+
+```
+
+### Useful Make Commands
+
+| Command | Description |
+| --- | --- |
+| `make dev` | Starts Backend and Frontend locally (hot-reload) |
+| `make build` | Compiles binaries for production |
+| `make test` | Runs unit tests for Go and JS |
+| `make lint` | Runs code quality checks |
+| `make clean` | Removes build artifacts |
+
+### Running Tests
+
+To run integration tests (requires Docker services running):
+
+```bash
+make test-backend
+
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](https://www.google.com/search?q=CONTRIBUTING.md) for details on code style and the pull request process.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
 
 ---
 

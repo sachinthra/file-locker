@@ -7,8 +7,10 @@ RUN go build -o filelocker cmd/server/main.go
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-WORKDIR /root/
+WORKDIR /app
 COPY --from=builder /app/filelocker .
 COPY --from=builder /app/configs ./configs
-EXPOSE 9010 9011
+ARG SERVER_PORT=9010
+ARG GRPC_PORT=9011
+EXPOSE ${SERVER_PORT} ${GRPC_PORT}
 CMD ["./filelocker"]

@@ -8,6 +8,31 @@ server:
   write_timeout: 30s
   max_header_bytes: 1048576  # 1 MB
 
+storage:
+  minio:
+    # Connection string for LOCAL development (Host view)
+    endpoint: "localhost:9012" 
+    
+    # Ports definitions (Used by Docker Compose via sync script)
+    port_api: 9012      # External Port for API
+    port_console: 9013  # External Port for Console
+    
+    access_key: "minioadmin"
+    secret_key: "minioadmin"
+    bucket: "filelocker"
+    use_ssl: false
+    region: "us-east-1"
+    
+  redis:
+    # Connection string for LOCAL development (Host view)
+    addr: "localhost:6379"
+    
+    # Port definition
+    port: 6379
+    
+    password: ""
+    db: 0
+
 security:
   jwt_secret: "change-me-in-production"
   session_timeout: 3600  # seconds
@@ -20,25 +45,6 @@ security:
     requests_per_minute: 100
     burst: 20
 
-storage:
-  minio:
-    endpoint: "localhost:9012"
-    access_key: "minioadmin"
-    secret_key: "minioadmin"
-    bucket: "filelocker"
-    use_ssl: false
-    region: "us-east-1"
-  redis:
-    addr: "localhost:6379"
-    password: ""
-    db: 0
-    max_retries: 3
-    pool_size: 10
-
-encryption:
-  algorithm: "AES-256-GCM"
-  key_size: 32  # bytes
-  
 features:
   auto_delete:
     enabled: true
@@ -49,17 +55,6 @@ features:
   batch_uploads:
     enabled: true
     max_concurrent: 5
-  
-upload:
-  max_file_size: 5368709120  # 5 GB
-  allowed_mime_types:
-    - "video/*"
-    - "audio/*"
-    - "image/*"
-    - "application/pdf"
-    - "application/zip"
-    - "text/*"
-  temp_dir: "/tmp/filelocker"
 
 logging:
   level: "info"  # debug, info, warn, error
@@ -67,18 +62,34 @@ logging:
   output: "stdout"  # stdout, file
   file_path: "/var/log/filelocker/server.log"
 
-cors:
-  enabled: true
-  allowed_origins:
-    - "http://localhost:3000"
-    - "http://localhost:9010"
-  allowed_methods:
-    - "GET"
-    - "POST"
-    - "PUT"
-    - "DELETE"
-    - "OPTIONS"
-  allowed_headers:
-    - "Authorization"
-    - "Content-Type"
-  max_age: 3600
+
+# encryption: # Not yet implemented
+#   algorithm: "AES-256-GCM"
+#   key_size: 32  # bytes
+  
+# upload: # Not yet implemented
+#   max_file_size: 5368709120  # 5 GB
+#   allowed_mime_types:
+#     - "video/*"
+#     - "audio/*"
+#     - "image/*"
+#     - "application/pdf"
+#     - "application/zip"
+#     - "text/*"
+#   temp_dir: "/tmp/filelocker"
+
+# cors: # Not yet implemented
+#   enabled: true
+#   allowed_origins:
+#     - "http://localhost:3000"
+#     - "http://localhost:9010"
+#   allowed_methods:
+#     - "GET"
+#     - "POST"
+#     - "PUT"
+#     - "DELETE"
+#     - "OPTIONS"
+#   allowed_headers:
+#     - "Authorization"
+#     - "Content-Type"
+#   max_age: 3600

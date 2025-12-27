@@ -11,3 +11,4 @@ build/
 *.public
 */vendor/*
 */test/*
+.env

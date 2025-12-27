@@ -1,44 +1,50 @@
 version: '3.8'
 
 services:
-  # File Locker Server
+  # ----------------------------------------------------------------
+  # BACKEND APP
+  # ----------------------------------------------------------------
   filelocker:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        - SERVER_PORT=${SERVER_PORT}
+        - GRPC_PORT=${GRPC_PORT}
     container_name: filelocker-server
     ports:
-      - "9010:9010"  # HTTP/REST API
-      - "9011:9011"  # gRPC API
+      - "${SERVER_PORT}:${SERVER_PORT}"  # HTTP/REST API
+      - "${GRPC_PORT}:${GRPC_PORT}"  # gRPC API
     environment:
-      - SERVER_PORT=9010
-      - GRPC_PORT=9011
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
-      - MINIO_BUCKET=${MINIO_BUCKET:-filelocker}
-      - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - SESSION_TIMEOUT=3600
-      - AUTO_DELETE_ENABLED=true
-      - TLS_ENABLED=false  # Set to true in production
+      - CONFIG_PATH=/app/configs/config.yaml
+
+      # [CRITICAL] Docker Network Overrides
+      # These tell Viper to ignore 'localhost' in config.yaml and use internal names
+      - FILELOCKER_STORAGE_MINIO_ENDPOINT=minio:9000
+      - FILELOCKER_STORAGE_REDIS_ADDR=redis:6379
+
+      # Pass secrets via env (mapped from .env or shell)
+      - FILELOCKER_STORAGE_MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - FILELOCKER_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - FILELOCKER_SECURITY_JWT_SECRET=${JWT_SECRET:-change-me-in-production}
     depends_on:
       - minio
       - redis
     networks:
       - filelocker-network
-    restart: unless-stopped
     volumes:
-      - ./configs:/app/configs:ro
+      - ./configs/config.yaml:/app/configs/config.yaml:ro
 
-  # MinIO Object Storage
+  # ----------------------------------------------------------------
+  # MINIO STORAGE
+  # ----------------------------------------------------------------
   minio:
     image: minio/minio:latest
     container_name: filelocker-minio
     ports:
-      - "9012:9000"      # MinIO API
-      - "9013:9001"      # MinIO Console
+      # Map Host Port (from config.yaml) -> Internal Port 9000
+      - "${MINIO_PORT_API}:9000"      
+      - "${MINIO_PORT_CONSOLE}:9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
@@ -47,45 +53,48 @@ services:
       - minio-data:/data
     networks:
       - filelocker-network
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
 
-  # Redis Cache
+  # ----------------------------------------------------------------
+  # REDIS CACHE
+  # ----------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: filelocker-redis
     ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+      - "${REDIS_PORT}:6379"
+    command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
     networks:
       - filelocker-network
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Web Frontend (Preact)
+  # ----------------------------------------------------------------
+  # FRONTEND
+  # ----------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: filelocker-frontend
     environment:
-      - VITE_API_URL=http://localhost:9010
-      - VITE_GRPC_URL=http://localhost:9011
+      - VITE_API_URL=http://localhost:${SERVER_PORT}
+      - VITE_GRPC_URL=http://localhost:${GRPC_PORT}
+    ports:
+      - "3000:80"
     depends_on:
       - filelocker
     networks:
       - filelocker-network
-    restart: unless-stopped
 
 networks:
   filelocker-network:
