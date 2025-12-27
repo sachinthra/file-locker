@@ -57,50 +57,34 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Get user from Redis
 	userData, err := h.redisCache.GetUser(r.Context(), req.Username)
-	log.Printf("UserDate: %v", userData)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
-	// Parse user data (format: "userID:hashedPassword:email")
-	parts := strings.Split(userData, ":")
-	if len(parts) < 2 {
-		respondError(w, http.StatusInternalServerError, "Invalid user data")
-		return
-	}
-
-	userID := parts[0]
-	hashedPassword := parts[1]
-
 	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(userData.PasswordHash), []byte(req.Password)); err != nil {
 		respondError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
 	// Generate JWT token
-	token, err := h.jwtService.GenerateToken(userID)
+	token, err := h.jwtService.GenerateToken(userData.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
 
 	// Save session in Redis (24 hour expiry)
-	if err := h.redisCache.SaveSession(r.Context(), token, userID, 24*time.Hour); err != nil {
+	if err := h.redisCache.SaveSession(r.Context(), token, userData.UserID, 24*time.Hour); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
 
-	email := ""
-	if len(parts) > 2 {
-		email = parts[2]
-	}
-
 	respondJSON(w, http.StatusOK, AuthResponse{
 		Token:  token,
-		UserID: userID,
-		Email:  email,
+		UserID: userData.UserID,
+		Email:  userData.Email,
 	})
 }
 

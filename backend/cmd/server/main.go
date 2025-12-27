@@ -94,10 +94,13 @@ func main() {
 
 	// CORS middleware
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With"},
-		ExposedHeaders:   []string{"Content-Length", "Content-Range"},
+		// AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010", "null"},
+		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-Requested-With"},
+		ExposedHeaders: []string{"Content-Length", "Content-Range"},
+		// AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With", "Range"},
+		// ExposedHeaders:   []string{"Content-Length", "Content-Range", "Accept-Ranges", "Content-Type"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))

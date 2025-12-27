@@ -43,8 +43,8 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse multipart form (100MB max memory)
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
+	// 10 MB is plenty for headers and small fields. Large files will stream from disk.
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		respondError(w, http.StatusBadRequest, "Failed to parse form")
 		return
 	}

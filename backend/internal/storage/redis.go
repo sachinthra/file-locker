@@ -28,6 +28,12 @@ type FileMetadata struct {
 	DownloadCount int        `json:"download_count"`
 }
 
+type UserData struct {
+	UserID       string `json:"user_id"`
+	PasswordHash string `json:"password_hash"`
+	Email        string `json:"email"`
+}
+
 func NewRedisCache(addr, password string, db int) (*RedisCache, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
@@ -114,14 +120,24 @@ func (r *RedisCache) UserExists(ctx context.Context, username string) (bool, err
 }
 
 func (r *RedisCache) SaveUser(ctx context.Context, username, userID, hashedPassword, email string, expiration time.Duration) error {
-	userKey := "user:" + username
-	userData := userID + ":" + hashedPassword + ":" + email
-	return r.client.Set(ctx, userKey, userData, expiration).Err()
+	data := UserData{
+		UserID:       userID,
+		PasswordHash: hashedPassword,
+		Email:        email,
+	}
+	jsonData, _ := json.Marshal(data)
+	return r.client.Set(ctx, "user:"+username, jsonData, expiration).Err()
 }
 
-func (r *RedisCache) GetUser(ctx context.Context, username string) (string, error) {
-	userKey := "user:" + username
-	return r.client.Get(ctx, userKey).Result()
+func (r *RedisCache) GetUser(ctx context.Context, username string) (*UserData, error) {
+	val, err := r.client.Get(ctx, "user:"+username).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var data UserData
+	json.Unmarshal([]byte(val), &data)
+	return &data, nil
 }
 
 // File metadata management functions
