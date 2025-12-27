@@ -1,11 +1,16 @@
 openapi: 3.0.0
 info:
   title: File Locker API
-  description: Secure file storage and streaming API
+  description: Secure file storage and streaming API with AES-256 encryption
   version: 1.0.0
+  contact:
+    name: File Locker API Support
+    url: https://github.com/sachinthra/file-locker
 servers:
   - url: http://localhost:9010/api/v1
     description: Local Development Server
+  - url: http://localhost:9010/api/v1
+    description: Production Server
 
 security:
   - BearerAuth: []
@@ -14,6 +19,9 @@ paths:
   /auth/register:
     post:
       summary: Register a new user
+      description: Creates a new user account with encrypted password storage
+      tags:
+        - Authentication
       security: [] # Public endpoint
       requestBody:
         required: true
@@ -23,9 +31,19 @@ paths:
               type: object
               required: [username, password, email]
               properties:
-                username: { type: string }
-                password: { type: string }
-                email: { type: string, format: email }
+                username:
+                  type: string
+                  minLength: 3
+                  example: "john_doe"
+                password:
+                  type: string
+                  minLength: 8
+                  format: password
+                  example: "SecurePass123!"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
       responses:
         201:
           description: User created successfully
@@ -33,10 +51,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        400:
+          description: Invalid request (username/password too short, invalid email)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        409:
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/login:
     post:
       summary: Login user
+      description: Authenticates user and returns JWT token
+      tags:
+        - Authentication
       security: []
       requestBody:
         required: true
@@ -46,8 +85,13 @@ paths:
               type: object
               required: [username, password]
               properties:
-                username: { type: string }
-                password: { type: string }
+                username:
+                  type: string
+                  example: "john_doe"
+                password:
+                  type: string
+                  format: password
+                  example: "SecurePass123!"
       responses:
         200:
           description: Login successful
@@ -55,11 +99,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        401:
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      description: Invalidates the current JWT token
+      tags:
+        - Authentication
+      responses:
+        200:
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+        401:
+          description: Unauthorized (invalid or missing token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /upload:
     post:
       summary: Upload a file
-      description: Uploads a file with optional encryption and auto-expiry.
+      description: Uploads a file with automatic AES-256 encryption. Supports optional tags and auto-expiry.
+      tags:
+        - Files
       requestBody:
         required: true
         content:
@@ -71,26 +153,136 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: File to upload (max 500MB)
                 tags:
                   type: string
-                  description: Comma-separated tags
+                  description: Comma-separated tags (e.g., "work,document,2025")
+                  example: "work,document"
                 expire_after:
                   type: integer
-                  description: Seconds until expiration
+                  description: Hours until file expires and is auto-deleted (0 = never)
+                  example: 24
       responses:
         201:
-          description: File uploaded
+          description: File uploaded and encrypted successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FileMetadata'
+        400:
+          description: Bad request (no file provided, file too large)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized (missing or invalid token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        413:
+          description: File too large (exceeds 500MB limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /files:
     get:
       summary: List user files
+      description: Returns all files owned by the authenticated user, sorted by creation date (newest first)
+      tags:
+        - Files
       responses:
         200:
-          description: List of files
+          description: List of user files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    delete:
+      summary: Delete a file
+      description: Permanently deletes a file from storage
+      tags:
+        - Files
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+          description: File ID to delete
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      responses:
+        200:
+          description: File deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "File deleted successfully"
+                  file_id:
+                    type: string
+                    example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        400:
+          description: File ID required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: Access denied (not file owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /files/search:
+    get:
+      summary: Search user files
+      description: Search files by filename or tags
+      tags:
+        - Files
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          description: Search query (matches filename and tags)
+          example: "document"
+      responses:
+        200:
+          description: Search results
           content:
             application/json:
               schema:
@@ -100,56 +292,303 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/FileMetadata'
+                  count:
+                    type: integer
+                    example: 3
+                  query:
+                    type: string
+                    example: "document"
+        400:
+          description: Search query required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /download/{id}:
     get:
       summary: Download a file
+      description: Downloads the decrypted file. File is automatically decrypted server-side.
+      tags:
+        - Files
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+          description: File ID to download
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
       responses:
         200:
-          description: File stream
+          description: File stream (decrypted)
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment with original filename
+              example: 'attachment; filename="document.pdf"'
+            Content-Type:
+              schema:
+                type: string
+              description: Original MIME type
+              example: "application/pdf"
+            Content-Length:
+              schema:
+                type: integer
+              description: File size in bytes
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
+        400:
+          description: File ID required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: Access denied (not file owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        410:
+          description: File has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /stream/{id}:
     get:
       summary: Stream a video file
-      description: Supports HTTP Range requests for seeking.
+      description: |
+        Stream encrypted video files with seeking support. 
+        Supports HTTP Range requests for video player seeking.
+        Files are decrypted on-the-fly using AES-CTR mode for efficient streaming.
+      tags:
+        - Files
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+          description: File ID to stream
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         - in: query
           name: token
-          schema: { type: string }
-          description: JWT token for browser-based streaming
+          schema:
+            type: string
+          description: JWT token for browser-based streaming (alternative to Authorization header)
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        - in: header
+          name: Range
+          schema:
+            type: string
+          description: HTTP Range header for seeking (e.g., "bytes=0-1023")
+          example: "bytes=0-1023"
       responses:
         206:
-          description: Partial content (Video Chunk)
+          description: Partial content (Video chunk)
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              description: Original MIME type
+              example: "video/mp4"
+            Content-Range:
+              schema:
+                type: string
+              description: Range of bytes returned
+              example: "bytes 0-1023/2048576"
+            Content-Length:
+              schema:
+                type: integer
+              description: Length of this chunk
+              example: 1024
+            Accept-Ranges:
+              schema:
+                type: string
+              description: Server supports byte ranges
+              example: "bytes"
+          content:
+            video/*:
+              schema:
+                type: string
+                format: binary
+        200:
+          description: Full file content (when no Range header provided)
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              example: "video/mp4"
+            Accept-Ranges:
+              schema:
+                type: string
+              example: "bytes"
+          content:
+            video/*:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: File ID required or invalid range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        410:
+          description: File has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        416:
+          description: Range not satisfiable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login or /auth/register
+  
   schemas:
     AuthResponse:
       type: object
+      required:
+        - token
+        - user_id
       properties:
-        token: { type: string }
-        user_id: { type: string }
-        email: { type: string }
+        token:
+          type: string
+          description: JWT authentication token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user_id:
+          type: string
+          description: Unique user identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
     
     FileMetadata:
       type: object
+      required:
+        - file_id
+        - file_name
+        - size
+        - mime_type
+        - created_at
+        - download_count
       properties:
-        file_id: { type: string }
-        file_name: { type: string }
-        size: { type: integer }
-        mime_type: { type: string }
-        created_at: { type: string, format: date-time }
-        download_count: { type: integer }
+        file_id:
+          type: string
+          description: Unique file identifier
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        file_name:
+          type: string
+          description: Original filename
+          example: "document.pdf"
+        size:
+          type: integer
+          format: int64
+          description: File size in bytes
+          example: 2048576
+        mime_type:
+          type: string
+          description: MIME type of the file
+          example: "application/pdf"
+        created_at:
+          type: string
+          format: date-time
+          description: File upload timestamp
+          example: "2025-12-28T10:30:00Z"
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiration timestamp (null if no expiration)
+          example: "2025-12-29T10:30:00Z"
+        tags:
+          type: array
+          items:
+            type: string
+          description: User-defined tags for categorization
+          example: ["document", "important"]
+        download_count:
+          type: integer
+          description: Number of times file has been downloaded
+          example: 5
+    
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Invalid credentials"
+    
+    FileListResponse:
+      type: object
+      required:
+        - files
+        - count
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileMetadata'
+        count:
+          type: integer
+          description: Total number of files
+          example: 10
