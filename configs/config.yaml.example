@@ -1,0 +1,58 @@
+# File Locker Server Configuration Example
+# Copy this file to config.yaml and adjust values as needed
+
+server:
+  port: 9010
+  grpc_port: 9011
+  host: "0.0.0.0"
+  read_timeout: 30s
+  write_timeout: 30s
+  max_header_bytes: 1048576  # 1 MB
+
+security:
+  jwt_secret: "CHANGE-THIS-TO-A-RANDOM-SECRET-KEY-IN-PRODUCTION"
+  session_timeout: 3600  # seconds (1 hour)
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+    burst: 20
+
+storage:
+  minio:
+    endpoint: "localhost:9000"  # Or "minio:9000" in Docker
+    access_key: "minioadmin"
+    secret_key: "minioadmin"
+    bucket: "filelocker"
+    use_ssl: false
+    region: "us-east-1"
+  redis:
+    addr: "localhost:6379"  # Or "redis:6379" in Docker
+    password: ""
+    db: 0
+    max_retries: 3
+    pool_size: 10
+
+encryption:
+  algorithm: "AES-256-GCM"
+  key_size: 32  # bytes
+  
+features:
+  auto_delete:
+    enabled: true
+    check_interval: 3600  # seconds (1 hour)
+  video_streaming:
+    enabled: true
+    chunk_size: 1048576  # 1 MB chunks
+  batch_uploads:
+    enabled: true
+    max_concurrent: 5
+
+logging:
+  level: "info"  # debug, info, warn, error
+  format: "json"  # json or text
+  output: "stdout"  # stdout, stderr, or file path
+  file_path: "logs/filelocker.log"  # if output is file path

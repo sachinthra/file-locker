@@ -1,0 +1,56 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+tmp/
+
+# Config overrides (keep example files)
+configs/config.local.yaml
+.env.local
+
+# Test files
+test/*.mp4
+test/*.mov
+test/*.avi
+test/*.mkv
+test/*.jpg
+test/*.png
+test/*.gif
+!test/README.md
+
+# Build artifacts
+dist/
+build/

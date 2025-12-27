@@ -10,3 +10,4 @@ build/
 *.db
 *.public
 */vendor/*
+*/test/*
