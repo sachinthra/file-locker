@@ -10,12 +10,14 @@ import (
 )
 
 type FilesHandler struct {
-	redisCache *storage.RedisCache
+	redisCache   *storage.RedisCache
+	minioStorage *storage.MinIOStorage
 }
 
-func NewFilesHandler(redisCache *storage.RedisCache) *FilesHandler {
+func NewFilesHandler(redisCache *storage.RedisCache, minioStorage *storage.MinIOStorage) *FilesHandler {
 	return &FilesHandler{
-		redisCache: redisCache,
+		redisCache:   redisCache,
+		minioStorage: minioStorage,
 	}
 }
 
@@ -196,10 +198,22 @@ func (h *FilesHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Delete file from MinIO storage
+	if err := h.minioStorage.DeleteFile(r.Context(), metadata.MinIOPath); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to delete file from storage")
+		return
+	}
+
 	// Delete metadata from Redis
 	if err := h.redisCache.DeleteFileMetadata(r.Context(), fileID); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to delete file metadata")
 		return
+	}
+
+	// Remove file from user's index
+	if err := h.redisCache.RemoveFileFromUserIndex(r.Context(), userID, fileID); err != nil {
+		// Log error but don't fail the request since file is already deleted
+		// This is best effort cleanup
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{

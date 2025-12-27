@@ -79,7 +79,7 @@ func main() {
 	uploadHandler := api.NewUploadHandler(minioStorage, redisCache)
 	downloadHandler := api.NewDownloadHandler(minioStorage, redisCache)
 	streamHandler := api.NewStreamHandler(minioStorage, redisCache)
-	filesHandler := api.NewFilesHandler(redisCache)
+	filesHandler := api.NewFilesHandler(redisCache, minioStorage)
 
 	log.Println("✓ API handlers initialized")
 

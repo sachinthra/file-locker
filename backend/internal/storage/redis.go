@@ -154,6 +154,10 @@ func (r *RedisCache) GetUserFiles(ctx context.Context, userID string) ([]string,
 	return r.client.SMembers(ctx, "user:"+userID+":files").Result()
 }
 
+func (r *RedisCache) RemoveFileFromUserIndex(ctx context.Context, userID, fileID string) error {
+	return r.client.SRem(ctx, "user:"+userID+":files", fileID).Err()
+}
+
 // Session management functions
 
 func (r *RedisCache) SaveSession(ctx context.Context, token, userID string, expiration time.Duration) error {

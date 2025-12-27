@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 	// 2. Initialize Handlers
 	testAuth = NewAuthHandler(testJWT, testRedis)
 	testUpload = NewUploadHandler(testMinIO, testRedis)
-	testFiles = NewFilesHandler(testRedis)
+	testFiles = NewFilesHandler(testRedis, testMinIO)
 	testStream = NewStreamHandler(testMinIO, testRedis)
 	testDown = NewDownloadHandler(testMinIO, testRedis)
 
