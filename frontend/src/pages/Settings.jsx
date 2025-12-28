@@ -3,6 +3,7 @@ import { route } from 'preact-router';
 import { getUser, getToken } from '../utils/auth';
 import api from '../utils/api';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Settings({ isAuthenticated, addNotification }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -12,6 +13,7 @@ export default function Settings({ isAuthenticated, addNotification }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [toast, setToast] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(true);
   const user = getUser();
 
   const showToast = (message, type = 'info') => {
@@ -30,6 +32,15 @@ export default function Settings({ isAuthenticated, addNotification }) {
       route('/login', true);
     }
   }, [isAuthenticated]);
+
+  // Auto-hide keyboard shortcuts hint after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowShortcuts(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -82,6 +93,31 @@ export default function Settings({ isAuthenticated, addNotification }) {
   return (
     <div class="settings-container">
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+
+      {/* Keyboard shortcuts hint */}
+      {showShortcuts && (
+        <div style="position: fixed; bottom: 10px; left: 10px; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.75rem; color: #666; border: 1px solid var(--border-color); z-index: 10; display: flex; align-items: center; gap: 1rem;">
+          <div>
+            <strong>Shortcuts:</strong> 
+            <span style="margin-left: 0.5rem;"><kbd>ESC</kbd> Close/Cancel</span>
+            <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+Enter</kbd> Submit</span>
+            <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+D</kbd> Dashboard</span>
+            <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+L</kbd> Logout</span>
+          </div>
+          <button 
+            onClick={() => setShowShortcuts(false)} 
+            class="btn-icon" 
+            style="padding: 0.25rem; font-size: 0.75rem;"
+            title="Close"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      )}
+
         <div class="dashboard-header">
             <h1>Welcome, {user?.username}!</h1>
             <p>Manage your encrypted files securely</p>
@@ -234,6 +270,20 @@ export default function Settings({ isAuthenticated, addNotification }) {
                 <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>S</kbd>
               </div>
             </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Open dashboard</span>
+              <div>
+                <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>D</kbd>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Logout</span>
+              <div>
+                <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>L</kbd>
+              </div>
+            </div>
             
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
               <span>Confirm action in dialogs</span>
@@ -266,6 +316,8 @@ function TokenManager({ addNotification }) {
   const [newTokenName, setNewTokenName] = useState("");
   const [expiresDays, setExpiresDays] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
+  const [copyButtonText, setCopyButtonText] = useState("📋 Copy Token");
+  const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name }
 
   const loadTokens = async () => {
     try {
@@ -276,7 +328,52 @@ function TokenManager({ addNotification }) {
     }
   };
 
-  useEffect(() => { loadTokens(); }, []);
+  useEffect(() => { 
+    loadTokens(); 
+  }, []);
+
+  // Keyboard shortcuts for modal
+  useEffect(() => {
+    if (!showCreateModal) return;
+
+    const handleKeyDown = (e) => {
+      // ESC to close
+      if (e.key === 'Escape') {
+        setShowCreateModal(false);
+        setNewTokenPlain(null);
+        setCopyButtonText("📋 Copy Token");
+      }
+      // Cmd/Ctrl + C to copy
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && newTokenPlain) {
+        e.preventDefault();
+        handleCopyToken();
+      }
+      // Cmd/Ctrl + Enter to close after copying
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (copyButtonText.includes('Copied')) {
+          setShowCreateModal(false);
+          setNewTokenPlain(null);
+          setCopyButtonText("📋 Copy Token");
+        } else {
+          handleCopyToken();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCreateModal, newTokenPlain, copyButtonText]);
+
+  const handleCopyToken = () => {
+    if (newTokenPlain) {
+      navigator.clipboard.writeText(newTokenPlain);
+      setCopyButtonText("✅ Copied!");
+      addNotification && addNotification('Token copied to clipboard!', 'success');
+      setTimeout(() => {
+        setCopyButtonText("📋 Copy Token");
+      }, 2000);
+    }
+  };
 
   const handleCreate = async () => {
     if (!newTokenName.trim()) {
@@ -302,15 +399,20 @@ function TokenManager({ addNotification }) {
   };
 
   const handleRevoke = async (id, name) => {
-    if (!confirm(`Are you sure you want to revoke the token "${name}"? This action cannot be undone.`)) {
-      return;
-    }
+    setRevokeConfirm({ id, name });
+  };
+
+  const confirmRevoke = async () => {
+    if (!revokeConfirm) return;
+    
     try {
-      await api.delete(`/auth/tokens/${id}`);
+      await api.delete(`/auth/tokens/${revokeConfirm.id}`);
       await loadTokens();
       addNotification && addNotification('Token revoked successfully', 'success');
     } catch (e) {
       addNotification && addNotification('Failed to revoke token', 'error');
+    } finally {
+      setRevokeConfirm(null);
     }
   };
 
@@ -329,67 +431,61 @@ function TokenManager({ addNotification }) {
   };
 
   const getTokenStatus = (expiresAt) => {
-    if (!expiresAt) return { text: 'Active', color: '#10b981' };
+    if (!expiresAt) return { text: 'Active', color: 'var(--success-color)' };
     const now = new Date();
     const expires = new Date(expiresAt);
     const diffMs = expires - now;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     
-    if (diffMs < 0) return { text: 'Expired', color: '#ef4444' };
-    if (diffDays <= 7) return { text: 'Expiring Soon', color: '#f59e0b' };
-    return { text: 'Active', color: '#10b981' };
+    if (diffMs < 0) return { text: 'Expired', color: 'var(--error-color)' };
+    if (diffDays <= 7) return { text: 'Expiring Soon', color: 'var(--warning-color)' };
+    return { text: 'Active', color: 'var(--success-color)' };
   };
 
   return (
     <div style={{ maxWidth: '900px' }}>
       {/* Info Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%)',
         padding: '1.5rem',
-        borderRadius: '12px',
+        borderRadius: 'var(--radius-lg)',
         marginBottom: '2rem',
-        color: 'white'
+        color: 'white',
+        boxShadow: 'var(--shadow-lg)'
       }}>
-        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>🔑 Personal Access Tokens</h3>
-        <p style={{ margin: 0, opacity: 0.95, lineHeight: 1.5 }}>
+        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '600' }}>🔑 Personal Access Tokens</h3>
+        <p style={{ margin: 0, opacity: 0.95, lineHeight: 1.5, fontSize: '0.95rem' }}>
           Generate tokens for CLI access and automation. Treat tokens like passwords - they provide full account access.
         </p>
       </div>
 
       {/* Create Token Card */}
       <div style={{
-        background: '#1a1a2e',
-        border: '1px solid #2a2a3e',
-        borderRadius: '12px',
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-lg)',
         padding: '1.5rem',
-        marginBottom: '2rem'
+        marginBottom: '2rem',
+        boxShadow: 'var(--shadow-sm)'
       }}>
-        <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Generate New Token</h4>
+        <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: 'var(--text-color)' }}>Generate New Token</h4>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#aaa' }}>
-              Token Name <span style={{ color: '#ef4444' }}>*</span>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
+              Token Name <span style={{ color: 'var(--error-color)' }}>*</span>
             </label>
             <input 
               type="text" 
               placeholder="e.g., MacBook CLI, Production Server, CI/CD Pipeline" 
               value={newTokenName} 
               onInput={e => setNewTokenName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                background: '#0f0f1e',
-                border: '1px solid #2a2a3e',
-                borderRadius: '8px',
-                color: 'white',
-                fontSize: '0.95rem'
-              }}
+              class="form-input"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#aaa' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
               Expiration
             </label>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -398,17 +494,10 @@ function TokenManager({ addNotification }) {
                 placeholder="0" 
                 value={expiresDays} 
                 onInput={e => setExpiresDays(e.target.value)}
-                style={{
-                  width: '120px',
-                  padding: '0.75rem',
-                  background: '#0f0f1e',
-                  border: '1px solid #2a2a3e',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '0.95rem'
-                }}
+                class="form-input"
+                style={{ width: '120px' }}
               />
-              <span style={{ color: '#aaa', fontSize: '0.9rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 days (0 = never expires)
               </span>
             </div>
@@ -418,12 +507,6 @@ function TokenManager({ addNotification }) {
             class="btn btn-primary" 
             onClick={handleCreate}
             disabled={isCreating}
-            style={{
-              padding: '0.75rem 1.5rem',
-              fontSize: '1rem',
-              fontWeight: '600',
-              opacity: isCreating ? 0.6 : 1
-            }}
           >
             {isCreating ? 'Generating...' : '✨ Generate Token'}
           </button>
@@ -432,12 +515,13 @@ function TokenManager({ addNotification }) {
 
       {/* Tokens List */}
       <div style={{
-        background: '#1a1a2e',
-        border: '1px solid #2a2a3e',
-        borderRadius: '12px',
-        padding: '1.5rem'
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '1.5rem',
+        boxShadow: 'var(--shadow-sm)'
       }}>
-        <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
+        <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: 'var(--text-color)' }}>
           Your Tokens ({tokens.length})
         </h4>
 
@@ -445,7 +529,7 @@ function TokenManager({ addNotification }) {
           <div style={{
             textAlign: 'center',
             padding: '3rem 1rem',
-            color: '#666'
+            color: 'var(--text-muted)'
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
             <p style={{ margin: 0 }}>No tokens yet. Create your first token to get started.</p>
@@ -458,14 +542,15 @@ function TokenManager({ addNotification }) {
                 <div 
                   key={t.id}
                   style={{
-                    background: '#0f0f1e',
-                    border: '1px solid #2a2a3e',
-                    borderRadius: '10px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
                     padding: '1.25rem',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start',
-                    gap: '1rem'
+                    gap: '1rem',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   <div style={{ flex: 1 }}>
@@ -478,15 +563,16 @@ function TokenManager({ addNotification }) {
                       <h5 style={{ 
                         margin: 0, 
                         fontSize: '1.05rem',
-                        fontWeight: '600'
+                        fontWeight: '600',
+                        color: 'var(--text-color)'
                       }}>
                         {t.name}
                       </h5>
                       <span style={{
-                        background: status.color + '20',
+                        background: `${status.color}20`,
                         color: status.color,
                         padding: '0.25rem 0.75rem',
-                        borderRadius: '12px',
+                        borderRadius: 'var(--radius-xl)',
                         fontSize: '0.8rem',
                         fontWeight: '600'
                       }}>
@@ -499,10 +585,10 @@ function TokenManager({ addNotification }) {
                       gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                       gap: '0.75rem',
                       fontSize: '0.85rem',
-                      color: '#aaa'
+                      color: 'var(--text-secondary)'
                     }}>
                       <div>
-                        <span style={{ color: '#666' }}>Created:</span>{' '}
+                        <span style={{ color: 'var(--text-muted)' }}>Created:</span>{' '}
                         {new Date(t.created_at).toLocaleString('en-US', {
                           year: 'numeric',
                           month: 'short',
@@ -512,7 +598,7 @@ function TokenManager({ addNotification }) {
                         })}
                       </div>
                       <div>
-                        <span style={{ color: '#666' }}>Last Used:</span>{' '}
+                        <span style={{ color: 'var(--text-muted)' }}>Last Used:</span>{' '}
                         {t.last_used_at 
                           ? new Date(t.last_used_at).toLocaleString('en-US', {
                               year: 'numeric',
@@ -524,7 +610,7 @@ function TokenManager({ addNotification }) {
                           : 'Never'}
                       </div>
                       <div>
-                        <span style={{ color: '#666' }}>Expires:</span>{' '}
+                        <span style={{ color: 'var(--text-muted)' }}>Expires:</span>{' '}
                         {formatDate(t.expires_at)}
                       </div>
                     </div>
@@ -533,11 +619,11 @@ function TokenManager({ addNotification }) {
                       <div style={{
                         marginTop: '0.75rem',
                         padding: '0.5rem 0.75rem',
-                        background: '#f59e0b20',
-                        border: '1px solid #f59e0b40',
-                        borderRadius: '6px',
+                        background: `${status.color}15`,
+                        border: `1px solid ${status.color}40`,
+                        borderRadius: 'var(--radius-sm)',
                         fontSize: '0.85rem',
-                        color: '#f59e0b'
+                        color: 'var(--warning-color)'
                       }}>
                         ⚠️ This token has never been used
                       </div>
@@ -552,10 +638,6 @@ function TokenManager({ addNotification }) {
                     <button 
                       class="btn btn-danger btn-sm" 
                       onClick={() => handleRevoke(t.id, t.name)}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.9rem'
-                      }}
                     >
                       🗑️ Revoke
                     </button>
@@ -571,7 +653,11 @@ function TokenManager({ addNotification }) {
       {showCreateModal && (
         <div 
           class="modal-overlay" 
-          onClick={() => { setShowCreateModal(false); setNewTokenPlain(null); }}
+          onClick={() => { 
+            setShowCreateModal(false); 
+            setNewTokenPlain(null);
+            setCopyButtonText("📋 Copy Token");
+          }}
           style={{
             position: 'fixed',
             top: 0,
@@ -583,50 +669,58 @@ function TokenManager({ addNotification }) {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            backdropFilter: 'blur(4px)'
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.2s ease'
           }}
         >
           <div 
             class="modal-content" 
             onClick={e => e.stopPropagation()}
             style={{
-              background: '#1a1a2e',
-              borderRadius: '16px',
+              background: 'var(--card-bg)',
+              borderRadius: 'var(--radius-xl)',
               maxWidth: '600px',
               width: '90%',
-              border: '1px solid #2a2a3e',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-xl)',
+              animation: 'slideUp 0.3s ease'
             }}
           >
             <div 
               class="modal-header"
               style={{
                 padding: '1.5rem',
-                borderBottom: '1px solid #2a2a3e',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}
             >
               <div>
-                <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.5rem' }}>
+                <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.5rem', color: 'var(--text-color)' }}>
                   ✅ Token Created Successfully
                 </h3>
-                <p style={{ margin: 0, color: '#aaa', fontSize: '0.9rem' }}>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   Copy your token now - it won't be shown again
                 </p>
               </div>
               <button 
                 class="btn-icon" 
-                onClick={() => { setShowCreateModal(false); setNewTokenPlain(null); }}
+                onClick={() => { 
+                  setShowCreateModal(false); 
+                  setNewTokenPlain(null);
+                  setCopyButtonText("📋 Copy Token");
+                }}
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#aaa',
+                  color: 'var(--text-muted)',
                   fontSize: '1.5rem',
                   cursor: 'pointer',
                   padding: '0.5rem',
-                  lineHeight: 1
+                  lineHeight: 1,
+                  borderRadius: 'var(--radius-md)',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 ✕
@@ -636,9 +730,9 @@ function TokenManager({ addNotification }) {
             <div style={{ padding: '1.5rem' }}>
               {/* Security Warning */}
               <div style={{
-                background: '#ef444420',
-                border: '1px solid #ef444440',
-                borderRadius: '8px',
+                background: `${getComputedStyle(document.documentElement).getPropertyValue('--error-color')}15`,
+                border: `1px solid ${getComputedStyle(document.documentElement).getPropertyValue('--error-color')}40`,
+                borderRadius: 'var(--radius-md)',
                 padding: '1rem',
                 marginBottom: '1.5rem'
               }}>
@@ -646,7 +740,7 @@ function TokenManager({ addNotification }) {
                   display: 'flex', 
                   alignItems: 'flex-start', 
                   gap: '0.75rem',
-                  color: '#ef4444',
+                  color: 'var(--error-color)',
                   fontSize: '0.9rem',
                   lineHeight: 1.6
                 }}>
@@ -669,25 +763,23 @@ function TokenManager({ addNotification }) {
                   display: 'block', 
                   marginBottom: '0.5rem',
                   fontSize: '0.9rem',
-                  color: '#aaa',
+                  color: 'var(--text-secondary)',
                   fontWeight: '600'
                 }}>
                   Your Personal Access Token:
                 </label>
-                <div style={{
-                  position: 'relative'
-                }}>
+                <div style={{ position: 'relative' }}>
                   <pre style={{
-                    background: '#0f0f1e',
+                    background: 'var(--token-surface)',
                     padding: '1rem',
-                    borderRadius: '8px',
-                    color: '#10b981',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--success-color)',
                     fontSize: '0.95rem',
                     fontFamily: 'monospace',
                     margin: 0,
                     wordBreak: 'break-all',
                     whiteSpace: 'pre-wrap',
-                    border: '2px solid #10b981',
+                    border: '2px solid var(--success-color)',
                     userSelect: 'all'
                   }}>
                     {newTokenPlain}
@@ -697,15 +789,15 @@ function TokenManager({ addNotification }) {
 
               {/* CLI Usage Example */}
               <div style={{
-                background: '#0f0f1e',
-                border: '1px solid #2a2a3e',
-                borderRadius: '8px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
                 padding: '1rem',
                 marginBottom: '1.5rem'
               }}>
                 <div style={{ 
                   fontSize: '0.85rem', 
-                  color: '#666',
+                  color: 'var(--text-muted)',
                   marginBottom: '0.5rem',
                   fontWeight: '600'
                 }}>
@@ -714,13 +806,31 @@ function TokenManager({ addNotification }) {
                 <pre style={{
                   margin: 0,
                   fontSize: '0.85rem',
-                  color: '#aaa',
+                  color: 'var(--text-secondary)',
                   fontFamily: 'monospace',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-all'
                 }}>
                   fl login --token {newTokenPlain}
                 </pre>
+              </div>
+
+              {/* Keyboard Shortcuts Info */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem',
+                marginBottom: '1.5rem',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>⌨️ Keyboard Shortcuts:</div>
+                <div style={{ display: 'grid', gap: '0.25rem' }}>
+                  <div><kbd>Cmd/Ctrl</kbd> + <kbd>C</kbd> - Copy token</div>
+                  <div><kbd>Cmd/Ctrl</kbd> + <kbd>Enter</kbd> - Copy and close</div>
+                  <div><kbd>ESC</kbd> - Close modal</div>
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -731,24 +841,16 @@ function TokenManager({ addNotification }) {
               }}>
                 <button 
                   class="btn btn-primary" 
-                  onClick={() => { 
-                    navigator.clipboard.writeText(newTokenPlain || ''); 
-                    addNotification && addNotification('✅ Token copied to clipboard!', 'success'); 
-                  }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    fontSize: '1rem',
-                    fontWeight: '600'
-                  }}
+                  onClick={handleCopyToken}
                 >
-                  📋 Copy Token
+                  {copyButtonText}
                 </button>
                 <button 
-                  class="btn" 
-                  onClick={() => { setShowCreateModal(false); setNewTokenPlain(null); }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    fontSize: '1rem'
+                  class="btn btn-secondary" 
+                  onClick={() => { 
+                    setShowCreateModal(false); 
+                    setNewTokenPlain(null);
+                    setCopyButtonText("📋 Copy Token");
                   }}
                 >
                   I've Saved It
@@ -758,6 +860,18 @@ function TokenManager({ addNotification }) {
           </div>
         </div>
       )}
+
+      {/* Revoke Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={revokeConfirm !== null}
+        title="⚠️ Revoke Token?"
+        message={revokeConfirm ? `Are you sure you want to revoke the token "${revokeConfirm.name}"? This action cannot be undone and any applications using this token will immediately lose access.` : ''}
+        confirmText="Yes, Revoke Token"
+        cancelText="Cancel"
+        confirmStyle="danger"
+        onConfirm={confirmRevoke}
+        onCancel={() => setRevokeConfirm(null)}
+      />
     </div>
   );
 }

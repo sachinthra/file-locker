@@ -14,6 +14,33 @@ export default function Header({ isAuthenticated, setIsAuthenticated, notificati
     setTheme(getTheme());
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      // Ctrl/Cmd + D - Go to Dashboard
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault();
+        if (isAuthenticated) {
+          route('/dashboard');
+        }
+      }
+      
+      // Ctrl/Cmd + L - Logout
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        if (isAuthenticated) {
+          handleLogout();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthenticated]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (showUserMenu && !e.target.closest('.user-menu')) {
@@ -51,10 +78,6 @@ export default function Header({ isAuthenticated, setIsAuthenticated, notificati
         <nav class="nav">
           {isAuthenticated ? (
             <>
-              <a href="/dashboard" class="nav-link dashboard-link">
-                Dashboard
-              </a>
-              
               <NotificationCenter 
                 notifications={notifications}
                 onClearAll={onClearAllNotifications}
@@ -101,12 +124,23 @@ export default function Header({ isAuthenticated, setIsAuthenticated, notificati
                 
                 {showUserMenu && (
                   <div class="user-menu-dropdown">
+                    <a href="/dashboard" class="user-menu-item">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                      </svg>
+                      <span style="flex: 1">Dashboard</span>
+                      <span class="menu-shortcut"><kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>D</kbd></span>
+                    </a>
                     <a href="/settings" class="user-menu-item">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M12 1v6m0 6v6m7.071-13.071l-4.243 4.243m-5.656 5.656l-4.243 4.243m16.97.001l-4.243-4.243m-5.656-5.656L1.929 1.929"></path>
                       </svg>
-                      Settings
+                      <span style="flex: 1">Settings</span>
+                      <span class="menu-shortcut"><kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>S</kbd></span>
                     </a>
                     <div class="user-menu-divider"></div>
                     <button onClick={handleLogout} class="user-menu-item">
@@ -115,7 +149,8 @@ export default function Header({ isAuthenticated, setIsAuthenticated, notificati
                         <polyline points="16 17 21 12 16 7"></polyline>
                         <line x1="21" y1="12" x2="9" y2="12"></line>
                       </svg>
-                      Logout
+                      <span style="flex: 1">Logout</span>
+                      <span class="menu-shortcut"><kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>L</kbd></span>
                     </button>
                   </div>
                 )}
