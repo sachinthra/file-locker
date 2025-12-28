@@ -67,6 +67,7 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	// Get optional parameters
 	expireAfterStr := r.FormValue("expire_after") // in hours
 	tagsStr := r.FormValue("tags")                // comma-separated
+	description := r.FormValue("description")     // file description
 
 	// Parse tags
 	var tags []string
@@ -129,6 +130,8 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		FileID:        fileID,
 		UserID:        userID,
 		FileName:      header.Filename,
+		DisplayName:   header.Filename, // Default to original filename
+		Description:   description,
 		MimeType:      contentType,
 		Size:          header.Size,
 		EncryptedSize: encryptedSize,

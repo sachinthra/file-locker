@@ -97,7 +97,7 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		// AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010", "null"},
 		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-Requested-With"},
 		ExposedHeaders: []string{"Content-Length", "Content-Range"},
 		// AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With", "Range"},
@@ -149,6 +149,7 @@ func main() {
 			r.Get("/files", filesHandler.HandleListFiles)
 			r.Get("/files/search", filesHandler.HandleSearchFiles)
 			r.Delete("/files", filesHandler.HandleDeleteFile)
+			r.Patch("/files/{fileID}", filesHandler.HandleUpdateFile)
 			r.Get("/download/{id}", downloadHandler.HandleDownload)
 			r.Get("/stream/{id}", streamHandler.HandleStream)
 

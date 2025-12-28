@@ -1,8 +1,15 @@
 import { useState } from 'preact/hooks';
-import { getDownloadUrl, getStreamUrl } from '../utils/api';
+import { downloadFile, getStreamUrl, updateFile } from '../utils/api';
 
-export default function FileList({ files, onDelete }) {
+export default function FileList({ files, onDelete, onUpdate }) {
   const [streamingFile, setStreamingFile] = useState(null);
+  const [downloadingFile, setDownloadingFile] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [streamLoading, setStreamLoading] = useState(false);
+  const [editingFile, setEditingFile] = useState(null);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [updating, setUpdating] = useState(false);
   
   if (!files || files.length === 0) {
     return (
@@ -36,26 +43,129 @@ export default function FileList({ files, onDelete }) {
     return videoExtensions.some(ext => filename.toLowerCase().endsWith(ext));
   };
 
-  const handleDownload = (fileId, filename) => {
-    const url = getDownloadUrl(fileId);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async (fileId, filename) => {
+    try {
+      setDownloadingFile(fileId);
+      setDownloadProgress(0);
+
+      const response = await downloadFile(fileId, (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setDownloadProgress(percentCompleted);
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(response.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Failed to download file');
+    } finally {
+      setDownloadingFile(null);
+      setDownloadProgress(0);
+    }
   };
 
   const handleStream = (fileId, filename) => {
+    setStreamLoading(true);
     setStreamingFile({ fileId, filename });
   };
 
   const closePlayer = () => {
     setStreamingFile(null);
+    setStreamLoading(false);
+  };
+
+  const handleEdit = (file) => {
+    setEditingFile(file);
+    setEditDisplayName(file.display_name || file.file_name);
+    setEditDescription(file.description || '');
+  };
+
+  const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingFile) return;
+
+    setUpdating(true);
+    try {
+      await updateFile(editingFile.file_id, {
+        display_name: editDisplayName,
+        description: editDescription
+      });
+
+      setEditingFile(null);
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err) {
+      console.error('Update failed:', err);
+      alert(err.response?.data?.error || 'Failed to update file');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const closeEditModal = () => {
+    setEditingFile(null);
+    setEditDisplayName('');
+    setEditDescription('');
   };
 
   return (
     <>
+      {editingFile && (
+        <div class="modal-overlay" onClick={closeEditModal}>
+          <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 500px">
+            <div class="modal-header">
+              <h3>Edit File</h3>
+              <button class="btn btn-icon" onClick={closeEditModal} title="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleUpdateSubmit} style="padding: 1.5rem">
+              <div class="form-group">
+                <label class="form-label">Display Name</label>
+                <input
+                  type="text"
+                  class="form-input"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  disabled={updating}
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea
+                  class="form-input"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  disabled={updating}
+                  rows="4"
+                  placeholder="Add a description..."
+                />
+              </div>
+              <div style="display: flex; gap: 0.5rem; justify-content: flex-end">
+                <button type="button" class="btn btn-secondary" onClick={closeEditModal} disabled={updating}>
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary" disabled={updating}>
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {streamingFile && (
         <div class="modal-overlay" onClick={closePlayer}>
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -68,11 +178,18 @@ export default function FileList({ files, onDelete }) {
                 </svg>
               </button>
             </div>
+            {streamLoading && (
+              <div class="loading-overlay">
+                <div class="spinner-large"></div>
+              </div>
+            )}
             <video 
               controls 
               autoplay
               style="width: 100%; max-height: 70vh; background: #000;"
               src={getStreamUrl(streamingFile.fileId)}
+              onLoadedData={() => setStreamLoading(false)}
+              onError={() => setStreamLoading(false)}
             >
               Your browser does not support video playback.
             </video>
@@ -82,6 +199,14 @@ export default function FileList({ files, onDelete }) {
       
     <div class="card" style="margin-top: 2rem">
       <h3>Your Files ({files.length})</h3>
+      
+      {downloadingFile && (
+        <div class="progress-bar">
+          <div class="progress-bar-fill" style={`width: ${downloadProgress}%`}></div>
+          <span class="progress-bar-text">Downloading... {downloadProgress}%</span>
+        </div>
+      )}
+      
       <div class="file-list">
         {files.map(file => (
           <div key={file.file_id} class="file-item">
@@ -99,7 +224,12 @@ export default function FileList({ files, onDelete }) {
             </div>
             
             <div class="file-details">
-              <div class="file-name">{file.file_name}</div>
+              <div class="file-name">{file.display_name || file.file_name}</div>
+              {file.description && (
+                <div class="file-description" style="color: #666; font-size: 0.9rem; margin-top: 0.25rem">
+                  {file.description}
+                </div>
+              )}
               <div class="file-meta">
                 <span>{formatFileSize(file.size)}</span>
                 <span>•</span>
@@ -121,6 +251,17 @@ export default function FileList({ files, onDelete }) {
             </div>
 
             <div class="file-actions">
+              <button
+                class="btn btn-icon"
+                onClick={() => handleEdit(file)}
+                title="Edit"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+
               {isVideoFile(file.file_name) && (
                 <button
                   class="btn btn-icon"
@@ -137,12 +278,17 @@ export default function FileList({ files, onDelete }) {
                 class="btn btn-icon"
                 onClick={() => handleDownload(file.file_id, file.file_name)}
                 title="Download"
+                disabled={downloadingFile === file.file_id}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="8 9 12 13 16 9"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="13"></line>
-                </svg>
+                {downloadingFile === file.file_id ? (
+                  <div class="spinner"></div>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="8 9 12 13 16 9"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="13"></line>
+                  </svg>
+                )}
               </button>
               
               <button

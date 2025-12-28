@@ -5,6 +5,7 @@ export default function FileUpload({ onUploadComplete }) {
   const [file, setFile] = useState(null);
   const [tags, setTags] = useState('');
   const [expiresIn, setExpiresIn] = useState('');
+  const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
@@ -49,7 +50,7 @@ export default function FileUpload({ onUploadComplete }) {
 
     try {
       const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
-      await uploadFile(file, tagArray, expiresIn, (progressEvent) => {
+      await uploadFile(file, tagArray, expiresIn, description, (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         setProgress(percentCompleted);
       });
@@ -58,6 +59,7 @@ export default function FileUpload({ onUploadComplete }) {
       setFile(null);
       setTags('');
       setExpiresIn('');
+      setDescription('');
       setProgress(0);
       
       if (onUploadComplete) {
@@ -162,6 +164,18 @@ export default function FileUpload({ onUploadComplete }) {
               disabled={uploading}
             />
           </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description (optional)</label>
+          <textarea
+            class="form-input"
+            placeholder="Add a description for this file..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={uploading}
+            rows="3"
+          />
         </div>
 
         <button type="submit" class="btn btn-primary" style="width: 100%" disabled={uploading || !file}>

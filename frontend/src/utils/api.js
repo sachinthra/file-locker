@@ -30,11 +30,12 @@ export const logout = () => {
 };
 
 // File APIs
-export const uploadFile = (file, tags, expireAfter, onProgress) => {
+export const uploadFile = (file, tags, expireAfter, description, onProgress) => {
   const formData = new FormData();
   formData.append('file', file);
   if (tags) formData.append('tags', tags);
   if (expireAfter) formData.append('expire_after', expireAfter);
+  if (description) formData.append('description', description);
 
   return api.post('/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -52,6 +53,17 @@ export const searchFiles = (query) => {
 
 export const deleteFile = (fileId) => {
   return api.delete(`/files?id=${fileId}`);
+};
+
+export const updateFile = (fileId, data) => {
+  return api.patch(`/files/${fileId}`, data);
+};
+
+export const downloadFile = (fileId, onProgress) => {
+  return api.get(`/download/${fileId}`, {
+    responseType: 'blob',
+    onDownloadProgress: onProgress
+  });
 };
 
 export const getDownloadUrl = (fileId) => {

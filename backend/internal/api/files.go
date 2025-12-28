@@ -1,11 +1,13 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
 
@@ -24,6 +26,8 @@ func NewFilesHandler(redisCache *storage.RedisCache, minioStorage *storage.MinIO
 type FileInfo struct {
 	FileID        string     `json:"file_id"`
 	FileName      string     `json:"file_name"`
+	DisplayName   string     `json:"display_name,omitempty"`
+	Description   string     `json:"description,omitempty"`
 	MimeType      string     `json:"mime_type"`
 	Size          int64      `json:"size"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -66,6 +70,8 @@ func (h *FilesHandler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 		files = append(files, FileInfo{
 			FileID:        metadata.FileID,
 			FileName:      metadata.FileName,
+			DisplayName:   metadata.DisplayName,
+			Description:   metadata.Description,
 			MimeType:      metadata.MimeType,
 			Size:          metadata.Size,
 			CreatedAt:     metadata.CreatedAt,
@@ -130,6 +136,8 @@ func (h *FilesHandler) HandleSearchFiles(w http.ResponseWriter, r *http.Request)
 			matchingFiles = append(matchingFiles, FileInfo{
 				FileID:        metadata.FileID,
 				FileName:      metadata.FileName,
+				DisplayName:   metadata.DisplayName,
+				Description:   metadata.Description,
 				MimeType:      metadata.MimeType,
 				Size:          metadata.Size,
 				CreatedAt:     metadata.CreatedAt,
@@ -146,6 +154,8 @@ func (h *FilesHandler) HandleSearchFiles(w http.ResponseWriter, r *http.Request)
 				matchingFiles = append(matchingFiles, FileInfo{
 					FileID:        metadata.FileID,
 					FileName:      metadata.FileName,
+					DisplayName:   metadata.DisplayName,
+					Description:   metadata.Description,
 					MimeType:      metadata.MimeType,
 					Size:          metadata.Size,
 					CreatedAt:     metadata.CreatedAt,
@@ -219,5 +229,71 @@ func (h *FilesHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "File deleted successfully",
 		"file_id": fileID,
+	})
+}
+
+type UpdateFileRequest struct {
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+}
+
+func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) {
+	// Get userID from context
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Get fileID from URL
+	fileID := chi.URLParam(r, "fileID")
+	if fileID == "" {
+		respondError(w, http.StatusBadRequest, "File ID required")
+		return
+	}
+
+	// Parse request body
+	var req UpdateFileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Get existing metadata to verify ownership
+	metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "File not found")
+		return
+	}
+
+	// Verify ownership
+	if metadata.UserID != userID {
+		respondError(w, http.StatusForbidden, "Access denied")
+		return
+	}
+
+	// Update metadata fields
+	if req.DisplayName != "" {
+		metadata.DisplayName = req.DisplayName
+	}
+	metadata.Description = req.Description // Allow empty string to clear description
+
+	// Save updated metadata (keep original expiration)
+	var expiration time.Duration
+	if metadata.ExpiresAt != nil {
+		expiration = time.Until(*metadata.ExpiresAt)
+	} else {
+		expiration = 24 * time.Hour // Default fallback
+	}
+	if err := h.redisCache.SaveFileMetadata(r.Context(), fileID, metadata, expiration); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update file metadata")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message":      "File updated successfully",
+		"file_id":      fileID,
+		"display_name": metadata.DisplayName,
+		"description":  metadata.Description,
 	})
 }

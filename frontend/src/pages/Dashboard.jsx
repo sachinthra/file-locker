@@ -169,7 +169,11 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
               <p>Loading files...</p>
             </div>
           ) : (
-            <FileList files={displayedFiles} onDelete={handleDelete} />
+            <FileList 
+              files={displayedFiles} 
+              onDelete={handleDelete}
+              onUpdate={loadFiles}
+            />
           )}
         </div>
       </div>
