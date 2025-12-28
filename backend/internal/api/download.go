@@ -15,12 +15,14 @@ import (
 type DownloadHandler struct {
 	minioStorage *storage.MinIOStorage
 	redisCache   *storage.RedisCache
+	pgStore      *storage.PostgresStore
 }
 
-func NewDownloadHandler(minioStorage *storage.MinIOStorage, redisCache *storage.RedisCache) *DownloadHandler {
+func NewDownloadHandler(minioStorage *storage.MinIOStorage, redisCache *storage.RedisCache, pgStore *storage.PostgresStore) *DownloadHandler {
 	return &DownloadHandler{
 		minioStorage: minioStorage,
 		redisCache:   redisCache,
+		pgStore:      pgStore,
 	}
 }
 
@@ -39,8 +41,8 @@ func (h *DownloadHandler) HandleDownload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get metadata from Redis
-	metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
+	// Get metadata from PostgreSQL
+	metadata, err := h.pgStore.GetFileMetadata(r.Context(), fileID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "File not found")
 		return
@@ -93,7 +95,6 @@ func (h *DownloadHandler) HandleDownload(w http.ResponseWriter, r *http.Request)
 
 	// Increment download counter (fire and forget)
 	go func() {
-		metadata.DownloadCount++
-		h.redisCache.SaveFileMetadata(r.Context(), fileID, metadata, 0)
+		h.pgStore.IncrementDownloadCount(r.Context(), fileID)
 	}()
 }

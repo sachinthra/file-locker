@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sachinthra/file-locker/backend/internal/auth"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"golang.org/x/crypto/bcrypt"
@@ -16,12 +15,14 @@ import (
 type AuthHandler struct {
 	jwtService *auth.JWTService
 	redisCache *storage.RedisCache
+	pgStore    *storage.PostgresStore
 }
 
-func NewAuthHandler(jwtService *auth.JWTService, redisCache *storage.RedisCache) *AuthHandler {
+func NewAuthHandler(jwtService *auth.JWTService, redisCache *storage.RedisCache, pgStore *storage.PostgresStore) *AuthHandler {
 	return &AuthHandler{
 		jwtService: jwtService,
 		redisCache: redisCache,
+		pgStore:    pgStore,
 	}
 }
 
@@ -55,36 +56,36 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user from Redis
-	userData, err := h.redisCache.GetUser(r.Context(), req.Username)
+	// Get user from PostgreSQL
+	user, err := h.pgStore.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
 	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(userData.PasswordHash), []byte(req.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		respondError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
 	// Generate JWT token
-	token, err := h.jwtService.GenerateToken(userData.UserID)
+	token, err := h.jwtService.GenerateToken(user.ID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
 
 	// Save session in Redis (24 hour expiry)
-	if err := h.redisCache.SaveSession(r.Context(), token, userData.UserID, 24*time.Hour); err != nil {
+	if err := h.redisCache.SaveSession(r.Context(), token, user.ID, 24*time.Hour); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
 
 	respondJSON(w, http.StatusOK, AuthResponse{
 		Token:  token,
-		UserID: userData.UserID,
-		Email:  userData.Email,
+		UserID: user.ID,
+		Email:  user.Email,
 	})
 }
 
@@ -107,7 +108,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user already exists
-	exists, err := h.redisCache.UserExists(r.Context(), req.Username)
+	exists, err := h.pgStore.UserExists(r.Context(), req.Username)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to check user existence")
 		return
@@ -124,17 +125,15 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate user ID
-	userID := uuid.New().String()
-
-	// Save user to Redis (format: "userID:hashedPassword:email")
-	if err := h.redisCache.SaveUser(r.Context(), req.Username, userID, string(hashedPassword), req.Email, 0); err != nil {
+	// Create user in PostgreSQL
+	user, err := h.pgStore.CreateUser(r.Context(), req.Username, req.Email, string(hashedPassword))
+	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
 
 	// Generate JWT token
-	token, err := h.jwtService.GenerateToken(userID)
+	token, err := h.jwtService.GenerateToken(user.ID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
@@ -143,14 +142,14 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Token %v", token)
 
 	// Save session
-	if err := h.redisCache.SaveSession(r.Context(), token, userID, 24*time.Hour); err != nil {
+	if err := h.redisCache.SaveSession(r.Context(), token, user.ID, 24*time.Hour); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
 
 	respondJSON(w, http.StatusCreated, AuthResponse{
 		Token:  token,
-		UserID: userID,
+		UserID: user.ID,
 		Email:  req.Email,
 	})
 }

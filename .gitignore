@@ -12,6 +12,7 @@ build/
 */vendor/*
 */test/*
 .env
+tmp/
 
 # Frontend
 frontend/node_modules/

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/sachinthra/file-locker/backend/internal/storage"
@@ -9,14 +10,14 @@ import (
 
 type CleanupWorker struct {
 	minioStorage *storage.MinIOStorage
-	redisCache   *storage.RedisCache
+	pgStore      *storage.PostgresStore
 	interval     time.Duration
 }
 
-func NewCleanupWorker(minio *storage.MinIOStorage, redis *storage.RedisCache, interval time.Duration) *CleanupWorker {
+func NewCleanupWorker(minio *storage.MinIOStorage, pgStore *storage.PostgresStore, interval time.Duration) *CleanupWorker {
 	return &CleanupWorker{
 		minioStorage: minio,
-		redisCache:   redis,
+		pgStore:      pgStore,
 		interval:     interval,
 	}
 }
@@ -39,37 +40,37 @@ func (w *CleanupWorker) Start(ctx context.Context) {
 }
 
 func (w *CleanupWorker) cleanup(ctx context.Context) {
-	// Note: This is a simplified implementation
-	// In production, you would:
-	// 1. Use Redis SCAN to iterate through all "file:*" keys
-	// 2. Check expiration for each file
-	// 3. Delete expired files from both MinIO and Redis
-	// 4. Track metrics and log results
+	// Get expired files from PostgreSQL
+	expiredFiles, err := w.pgStore.GetExpiredFiles(ctx)
+	if err != nil {
+		log.Printf("Failed to get expired files: %v", err)
+		return
+	}
 
-	// For MVP, we rely on Redis TTL to auto-expire file metadata
-	// The cleanup worker can be enhanced later to:
-	// - Scan all file keys using Redis SCAN command
-	// - Delete corresponding MinIO objects for expired files
-	// - Maintain cleanup metrics
+	if len(expiredFiles) == 0 {
+		log.Println("No expired files to clean up")
+		return
+	}
 
-	// Example implementation would look like:
-	// now := time.Now()
-	// filesDeleted := 0
-	// spaceFreed := int64(0)
-	//
-	// iter := w.redisCache.client.Scan(ctx, 0, "file:*", 0).Iterator()
-	// for iter.Next(ctx) {
-	//     fileKey := iter.Val()
-	//     fileID := strings.TrimPrefix(fileKey, "file:")
-	//     metadata, err := w.redisCache.GetFileMetadata(ctx, fileID)
-	//     if err != nil {
-	//         continue
-	//     }
-	//     if metadata.ExpiresAt != nil && metadata.ExpiresAt.Before(now) {
-	//         w.minioStorage.DeleteFile(ctx, metadata.MinIOPath)
-	//         w.redisCache.DeleteFileMetadata(ctx, fileID)
-	//         filesDeleted++
-	//         spaceFreed += metadata.Size
-	//     }
-	// }
+	filesDeleted := 0
+	spaceFreed := int64(0)
+
+	for _, metadata := range expiredFiles {
+		// Delete file from MinIO
+		if err := w.minioStorage.DeleteFile(ctx, metadata.MinIOPath); err != nil {
+			log.Printf("Failed to delete file from MinIO: %s, error: %v", metadata.FileID, err)
+			continue
+		}
+
+		// Delete metadata from PostgreSQL
+		if err := w.pgStore.DeleteFileMetadata(ctx, metadata.FileID); err != nil {
+			log.Printf("Failed to delete file metadata: %s, error: %v", metadata.FileID, err)
+			continue
+		}
+
+		filesDeleted++
+		spaceFreed += metadata.Size
+	}
+
+	log.Printf("Cleanup completed: %d files deleted, %d bytes freed", filesDeleted, spaceFreed)
 }

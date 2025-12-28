@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,12 +17,14 @@ import (
 type UploadHandler struct {
 	minioStorage *storage.MinIOStorage
 	redisCache   *storage.RedisCache
+	pgStore      *storage.PostgresStore
 }
 
-func NewUploadHandler(minioStorage *storage.MinIOStorage, redisCache *storage.RedisCache) *UploadHandler {
+func NewUploadHandler(minioStorage *storage.MinIOStorage, redisCache *storage.RedisCache, pgStore *storage.PostgresStore) *UploadHandler {
 	return &UploadHandler{
 		minioStorage: minioStorage,
 		redisCache:   redisCache,
+		pgStore:      pgStore,
 	}
 }
 
@@ -143,25 +146,15 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		DownloadCount: 0,
 	}
 
-	// Determine Redis expiration (if file has expiration, use that + buffer)
-	var redisExpiration time.Duration
-	if expiresAt != nil {
-		redisExpiration = time.Until(*expiresAt) + 24*time.Hour
-	} else {
-		redisExpiration = 0 // No expiration
-	}
-
-	// Save metadata to Redis
-	if err := h.redisCache.SaveFileMetadata(r.Context(), fileID, metadata, redisExpiration); err != nil {
+	// Save metadata to PostgreSQL
+	log.Printf("[DEBUG] Saving file metadata: FileID=%s, UserID=%s, FileName=%s",
+		fileID, userID, header.Filename)
+	if err := h.pgStore.SaveFileMetadata(r.Context(), metadata); err != nil {
+		log.Printf("[ERROR] Failed to save file metadata to PostgreSQL: %v", err)
 		respondError(w, http.StatusInternalServerError, "Failed to save file metadata")
 		return
 	}
-
-	// Add file to user's index
-	if err := h.redisCache.AddFileToUserIndex(r.Context(), userID, fileID); err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to index file")
-		return
-	}
+	log.Printf("[INFO] File uploaded successfully: FileID=%s, UserID=%s", fileID, userID)
 
 	// Return response
 	respondJSON(w, http.StatusCreated, UploadResponse{

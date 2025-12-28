@@ -3,8 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,12 +12,14 @@ import (
 type FilesHandler struct {
 	redisCache   *storage.RedisCache
 	minioStorage *storage.MinIOStorage
+	pgStore      *storage.PostgresStore
 }
 
-func NewFilesHandler(redisCache *storage.RedisCache, minioStorage *storage.MinIOStorage) *FilesHandler {
+func NewFilesHandler(redisCache *storage.RedisCache, minioStorage *storage.MinIOStorage, pgStore *storage.PostgresStore) *FilesHandler {
 	return &FilesHandler{
 		redisCache:   redisCache,
 		minioStorage: minioStorage,
+		pgStore:      pgStore,
 	}
 }
 
@@ -44,24 +44,18 @@ func (h *FilesHandler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get list of fileIDs from Redis user index
-	fileIDs, err := h.redisCache.GetUserFiles(r.Context(), userID)
+	// Get files from PostgreSQL
+	metadataList, err := h.pgStore.ListUserFiles(r.Context(), userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to retrieve files")
 		return
 	}
 
-	// Collect file metadata
+	// Convert to FileInfo and filter expired files
 	files := make([]FileInfo, 0)
 	now := time.Now()
 
-	for _, fileID := range fileIDs {
-		metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
-		if err != nil {
-			// Skip files that no longer exist
-			continue
-		}
-
+	for _, metadata := range metadataList {
 		// Filter out expired files
 		if metadata.ExpiresAt != nil && metadata.ExpiresAt.Before(now) {
 			continue
@@ -80,11 +74,6 @@ func (h *FilesHandler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 			DownloadCount: metadata.DownloadCount,
 		})
 	}
-
-	// Sort by created_at (newest first)
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].CreatedAt.After(files[j].CreatedAt)
-	})
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"files": files,
@@ -107,71 +96,36 @@ func (h *FilesHandler) HandleSearchFiles(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	query = strings.ToLower(query)
-
-	// Get user's files
-	fileIDs, err := h.redisCache.GetUserFiles(r.Context(), userID)
+	// Search files in PostgreSQL
+	metadataList, err := h.pgStore.SearchFiles(r.Context(), userID, query)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to retrieve files")
+		respondError(w, http.StatusInternalServerError, "Failed to search files")
 		return
 	}
 
-	// Filter matching files
+	// Convert to FileInfo and filter expired files
 	matchingFiles := make([]FileInfo, 0)
 	now := time.Now()
 
-	for _, fileID := range fileIDs {
-		metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
-		if err != nil {
-			continue
-		}
-
+	for _, metadata := range metadataList {
 		// Skip expired files
 		if metadata.ExpiresAt != nil && metadata.ExpiresAt.Before(now) {
 			continue
 		}
 
-		// Check if filename matches
-		if strings.Contains(strings.ToLower(metadata.FileName), query) {
-			matchingFiles = append(matchingFiles, FileInfo{
-				FileID:        metadata.FileID,
-				FileName:      metadata.FileName,
-				DisplayName:   metadata.DisplayName,
-				Description:   metadata.Description,
-				MimeType:      metadata.MimeType,
-				Size:          metadata.Size,
-				CreatedAt:     metadata.CreatedAt,
-				ExpiresAt:     metadata.ExpiresAt,
-				Tags:          metadata.Tags,
-				DownloadCount: metadata.DownloadCount,
-			})
-			continue
-		}
-
-		// Check if any tag matches
-		for _, tag := range metadata.Tags {
-			if strings.Contains(strings.ToLower(tag), query) {
-				matchingFiles = append(matchingFiles, FileInfo{
-					FileID:        metadata.FileID,
-					FileName:      metadata.FileName,
-					DisplayName:   metadata.DisplayName,
-					Description:   metadata.Description,
-					MimeType:      metadata.MimeType,
-					Size:          metadata.Size,
-					CreatedAt:     metadata.CreatedAt,
-					ExpiresAt:     metadata.ExpiresAt,
-					Tags:          metadata.Tags,
-					DownloadCount: metadata.DownloadCount,
-				})
-				break
-			}
-		}
+		matchingFiles = append(matchingFiles, FileInfo{
+			FileID:        metadata.FileID,
+			FileName:      metadata.FileName,
+			DisplayName:   metadata.DisplayName,
+			Description:   metadata.Description,
+			MimeType:      metadata.MimeType,
+			Size:          metadata.Size,
+			CreatedAt:     metadata.CreatedAt,
+			ExpiresAt:     metadata.ExpiresAt,
+			Tags:          metadata.Tags,
+			DownloadCount: metadata.DownloadCount,
+		})
 	}
-
-	// Sort by relevance (for now, just by created_at)
-	sort.Slice(matchingFiles, func(i, j int) bool {
-		return matchingFiles[i].CreatedAt.After(matchingFiles[j].CreatedAt)
-	})
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"files": matchingFiles,
@@ -196,7 +150,7 @@ func (h *FilesHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get metadata to verify ownership
-	metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
+	metadata, err := h.pgStore.GetFileMetadata(r.Context(), fileID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "File not found")
 		return
@@ -214,16 +168,10 @@ func (h *FilesHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Delete metadata from Redis
-	if err := h.redisCache.DeleteFileMetadata(r.Context(), fileID); err != nil {
+	// Delete metadata from PostgreSQL
+	if err := h.pgStore.DeleteFileMetadata(r.Context(), fileID); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to delete file metadata")
 		return
-	}
-
-	// Remove file from user's index
-	if err := h.redisCache.RemoveFileFromUserIndex(r.Context(), userID, fileID); err != nil {
-		// Log error but don't fail the request since file is already deleted
-		// This is best effort cleanup
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{
@@ -260,7 +208,7 @@ func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get existing metadata to verify ownership
-	metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
+	metadata, err := h.pgStore.GetFileMetadata(r.Context(), fileID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "File not found")
 		return
@@ -272,20 +220,8 @@ func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Update metadata fields
-	if req.DisplayName != "" {
-		metadata.DisplayName = req.DisplayName
-	}
-	metadata.Description = req.Description // Allow empty string to clear description
-
-	// Save updated metadata (keep original expiration)
-	var expiration time.Duration
-	if metadata.ExpiresAt != nil {
-		expiration = time.Until(*metadata.ExpiresAt)
-	} else {
-		expiration = 24 * time.Hour // Default fallback
-	}
-	if err := h.redisCache.SaveFileMetadata(r.Context(), fileID, metadata, expiration); err != nil {
+	// Update metadata in PostgreSQL
+	if err := h.pgStore.UpdateFileMetadata(r.Context(), fileID, req.DisplayName, req.Description); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to update file metadata")
 		return
 	}
@@ -293,7 +229,7 @@ func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":      "File updated successfully",
 		"file_id":      fileID,
-		"display_name": metadata.DisplayName,
-		"description":  metadata.Description,
+		"display_name": req.DisplayName,
+		"description":  req.Description,
 	})
 }

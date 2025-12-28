@@ -39,6 +39,20 @@ func main() {
 	// Initialize storage services
 	log.Println("Initializing storage services...")
 
+	// Initialize PostgreSQL
+	pgStore, err := storage.NewPostgresStore(
+		cfg.Storage.Database.Host,
+		fmt.Sprintf("%d", cfg.Storage.Database.Port),
+		cfg.Storage.Database.User,
+		cfg.Storage.Database.Password,
+		cfg.Storage.Database.DBName,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize PostgreSQL: %v", err)
+	}
+	log.Println("✓ PostgreSQL connected successfully")
+	defer pgStore.Close()
+
 	// Initialize MinIO
 	minioStorage, err := storage.NewMinIOStorage(
 		cfg.Storage.MinIO.Endpoint,
@@ -75,11 +89,11 @@ func main() {
 	authMiddleware := auth.NewAuthMiddleware(jwtService, redisCache)
 
 	// Initialize API handlers
-	authHandler := api.NewAuthHandler(jwtService, redisCache)
-	uploadHandler := api.NewUploadHandler(minioStorage, redisCache)
-	downloadHandler := api.NewDownloadHandler(minioStorage, redisCache)
-	streamHandler := api.NewStreamHandler(minioStorage, redisCache)
-	filesHandler := api.NewFilesHandler(redisCache, minioStorage)
+	authHandler := api.NewAuthHandler(jwtService, redisCache, pgStore)
+	uploadHandler := api.NewUploadHandler(minioStorage, redisCache, pgStore)
+	downloadHandler := api.NewDownloadHandler(minioStorage, redisCache, pgStore)
+	streamHandler := api.NewStreamHandler(minioStorage, redisCache, pgStore)
+	filesHandler := api.NewFilesHandler(redisCache, minioStorage, pgStore)
 
 	log.Println("✓ API handlers initialized")
 
@@ -162,7 +176,7 @@ func main() {
 
 	// Initialize gRPC server
 	grpcServer := grpc.NewServer()
-	fileServiceServer := grpcService.NewFileServiceServer(redisCache)
+	fileServiceServer := grpcService.NewFileServiceServer(pgStore)
 	pb.RegisterFileServiceServer(grpcServer, fileServiceServer)
 	log.Println("✓ gRPC server initialized")
 
@@ -172,7 +186,7 @@ func main() {
 
 	if cfg.Features.AutoDelete.Enabled {
 		cleanupInterval := time.Duration(cfg.Features.AutoDelete.CheckInterval) * time.Minute
-		cleanupWorker := worker.NewCleanupWorker(minioStorage, redisCache, cleanupInterval)
+		cleanupWorker := worker.NewCleanupWorker(minioStorage, pgStore, cleanupInterval)
 		go cleanupWorker.Start(ctx)
 		log.Printf("✓ Cleanup worker started (interval: %v)", cleanupInterval)
 	}

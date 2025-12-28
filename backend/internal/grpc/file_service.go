@@ -13,12 +13,12 @@ import (
 
 type FileServiceServer struct {
 	pb.UnimplementedFileServiceServer
-	redisCache *storage.RedisCache
+	pgStore *storage.PostgresStore
 }
 
-func NewFileServiceServer(redisCache *storage.RedisCache) *FileServiceServer {
+func NewFileServiceServer(pgStore *storage.PostgresStore) *FileServiceServer {
 	return &FileServiceServer{
-		redisCache: redisCache,
+		pgStore: pgStore,
 	}
 }
 
@@ -32,7 +32,7 @@ func (s *FileServiceServer) GetFileMetadata(ctx context.Context, req *pb.FileReq
 	}
 
 	// Get metadata from Redis
-	metadata, err := s.redisCache.GetFileMetadata(ctx, req.FileId)
+	metadata, err := s.pgStore.GetFileMetadata(ctx, req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "file not found")
 	}
@@ -68,22 +68,17 @@ func (s *FileServiceServer) ListFiles(ctx context.Context, req *pb.ListRequest) 
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	// Get user's file IDs
-	fileIDs, err := s.redisCache.GetUserFiles(ctx, req.UserId)
+	// Get user's files from PostgreSQL
+	metadataList, err := s.pgStore.ListUserFiles(ctx, req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to retrieve files")
 	}
 
-	// Collect metadata for all files
+	// Convert to protobuf messages
 	files := make([]*pb.FileMetadata, 0)
 	now := time.Now()
 
-	for _, fileID := range fileIDs {
-		metadata, err := s.redisCache.GetFileMetadata(ctx, fileID)
-		if err != nil {
-			continue // Skip files that no longer exist
-		}
-
+	for _, metadata := range metadataList {
 		// Filter out expired files
 		if metadata.ExpiresAt != nil && metadata.ExpiresAt.Before(now) {
 			continue
@@ -153,7 +148,7 @@ func (s *FileServiceServer) UpdateTags(ctx context.Context, req *pb.UpdateTagsRe
 	}
 
 	// Get existing metadata
-	metadata, err := s.redisCache.GetFileMetadata(ctx, req.FileId)
+	metadata, err := s.pgStore.GetFileMetadata(ctx, req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "file not found")
 	}
@@ -167,12 +162,7 @@ func (s *FileServiceServer) UpdateTags(ctx context.Context, req *pb.UpdateTagsRe
 	metadata.Tags = req.Tags
 
 	// Save updated metadata
-	var expiration time.Duration
-	if metadata.ExpiresAt != nil {
-		expiration = time.Until(*metadata.ExpiresAt)
-	}
-
-	if err := s.redisCache.SaveFileMetadata(ctx, req.FileId, metadata, expiration); err != nil {
+	if err := s.pgStore.SaveFileMetadata(ctx, metadata); err != nil {
 		return nil, status.Error(codes.Internal, "failed to update tags")
 	}
 
@@ -206,7 +196,7 @@ func (s *FileServiceServer) SetExpiration(ctx context.Context, req *pb.Expiratio
 	}
 
 	// Get existing metadata
-	metadata, err := s.redisCache.GetFileMetadata(ctx, req.FileId)
+	metadata, err := s.pgStore.GetFileMetadata(ctx, req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "file not found")
 	}
@@ -227,14 +217,8 @@ func (s *FileServiceServer) SetExpiration(ctx context.Context, req *pb.Expiratio
 		metadata.ExpiresAt = nil // Remove expiration
 	}
 
-	// Calculate Redis expiration
-	var redisExpiration time.Duration
-	if metadata.ExpiresAt != nil {
-		redisExpiration = time.Until(*metadata.ExpiresAt) + 24*time.Hour
-	}
-
-	// Save updated metadata
-	if err := s.redisCache.SaveFileMetadata(ctx, req.FileId, metadata, redisExpiration); err != nil {
+	// Save updated metadata to PostgreSQL
+	if err := s.pgStore.SaveFileMetadata(ctx, metadata); err != nil {
 		return nil, status.Error(codes.Internal, "failed to update expiration")
 	}
 

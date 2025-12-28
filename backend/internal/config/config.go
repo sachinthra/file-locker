@@ -46,8 +46,21 @@ type RateLimitConfig struct {
 }
 
 type StorageConfig struct {
-	MinIO MinIOConfig `mapstructure:"minio"`
-	Redis RedisConfig `mapstructure:"redis"`
+	Database DatabaseConfig `mapstructure:"database"`
+	MinIO    MinIOConfig    `mapstructure:"minio"`
+	Redis    RedisConfig    `mapstructure:"redis"`
+}
+
+type DatabaseConfig struct {
+	Host            string `mapstructure:"host"`
+	Port            int    `mapstructure:"port"`
+	User            string `mapstructure:"user"`
+	Password        string `mapstructure:"password"`
+	DBName          string `mapstructure:"dbname"`
+	SSLMode         string `mapstructure:"sslmode"`
+	MaxOpenConns    int    `mapstructure:"max_open_conns"`
+	MaxIdleConns    int    `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime int    `mapstructure:"conn_max_lifetime"`
 }
 
 type MinIOConfig struct {

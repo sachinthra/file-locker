@@ -19,12 +19,14 @@ import (
 type StreamHandler struct {
 	minioStorage *storage.MinIOStorage
 	redisCache   *storage.RedisCache
+	pgStore      *storage.PostgresStore
 }
 
-func NewStreamHandler(minioStorage *storage.MinIOStorage, redisCache *storage.RedisCache) *StreamHandler {
+func NewStreamHandler(minioStorage *storage.MinIOStorage, redisCache *storage.RedisCache, pgStore *storage.PostgresStore) *StreamHandler {
 	return &StreamHandler{
 		minioStorage: minioStorage,
 		redisCache:   redisCache,
+		pgStore:      pgStore,
 	}
 }
 
@@ -43,8 +45,8 @@ func (h *StreamHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Get metadata from Redis
-	metadata, err := h.redisCache.GetFileMetadata(r.Context(), fileID)
+	// 3. Get metadata from PostgreSQL
+	metadata, err := h.pgStore.GetFileMetadata(r.Context(), fileID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "File not found")
 		return

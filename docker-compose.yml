@@ -20,20 +20,46 @@ services:
 
       # [CRITICAL] Docker Network Overrides
       # These tell Viper to ignore 'localhost' in config.yaml and use internal names
+      - FILELOCKER_STORAGE_DATABASE_HOST=postgres
       - FILELOCKER_STORAGE_MINIO_ENDPOINT=minio:9000
       - FILELOCKER_STORAGE_REDIS_ADDR=redis:6379
 
       # Pass secrets via env (mapped from .env or shell)
+      - FILELOCKER_STORAGE_DATABASE_PASSWORD=${DB_PASSWORD:-filelocker_password}
       - FILELOCKER_STORAGE_MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - FILELOCKER_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - FILELOCKER_SECURITY_JWT_SECRET=${JWT_SECRET:-change-me-in-production}
     depends_on:
+      - postgres
       - minio
       - redis
     networks:
       - filelocker-network
     volumes:
       - ./configs/config.yaml:/app/configs/config.yaml:ro
+
+  # ----------------------------------------------------------------
+  # POSTGRESQL DATABASE
+  # ----------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: filelocker-postgres
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER:-filelocker}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-filelocker_password}
+      - POSTGRES_DB=${DB_NAME:-filelocker_db}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/init-db:/docker-entrypoint-initdb.d
+    networks:
+      - filelocker-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-filelocker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ----------------------------------------------------------------
   # MINIO STORAGE
@@ -101,6 +127,8 @@ networks:
     driver: bridge
 
 volumes:
+  postgres-data:
+    driver: local
   minio-data:
     driver: local
   redis-data:

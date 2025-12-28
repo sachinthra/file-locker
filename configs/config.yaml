@@ -9,6 +9,18 @@ server:
   max_header_bytes: 1048576  # 1 MB
 
 storage:
+  # PostgreSQL Database (Permanent Data: Users, Files)
+  database:
+    host: "localhost"
+    port: 5432
+    user: "filelocker"
+    password: "filelocker_password"
+    dbname: "filelocker_db"
+    sslmode: "disable"
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 300  # seconds
+  
   minio:
     # Connection string for LOCAL development (Host view)
     endpoint: "localhost:9012" 

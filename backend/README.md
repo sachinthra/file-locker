@@ -627,4 +627,18 @@ See LICENSE file in project root.
 
 ---
 
+## To check users manually in PostgreSQL:
+
+# Connect to PostgreSQL container
+docker exec -it filelocker-postgres psql -U filelocker -d filelocker_db
+
+# Once inside psql, run:
+SELECT id, username, email, created_at FROM users;
+
+# To see password hashes (not recommended in production):
+SELECT username, password_hash FROM users;
+
+# Exit psql:
+\q
+
 **Need Help?** Check the troubleshooting section or create an issue with logs and steps to reproduce.
