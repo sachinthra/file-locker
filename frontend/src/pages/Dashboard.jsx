@@ -8,7 +8,7 @@ import FileStats from '../components/FileStats';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 
-export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
+export default function Dashboard({ isAuthenticated, setIsAuthenticated, addNotification }) {
   const [allFiles, setAllFiles] = useState([]);
   const [displayedFiles, setDisplayedFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,10 +19,14 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
   const [exportProgress, setExportProgress] = useState(0);
   const [toast, setToast] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(true);
   const user = getUser();
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
+    if (addNotification) {
+      addNotification(message, type);
+    }
   };
 
   const closeToast = () => {
@@ -85,6 +89,15 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearching, deleteConfirm]);
+
+  // Auto-hide keyboard shortcuts hint after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowShortcuts(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const loadFiles = async () => {
     setLoading(true);
@@ -216,13 +229,28 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
       {error && <div class="alert alert-error">{error}</div>}
 
       {/* Keyboard shortcuts hint */}
-      <div style="position: fixed; bottom: 10px; left: 10px; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.75rem; color: #666; border: 1px solid var(--border-color); z-index: 10;">
-        <strong>Shortcuts:</strong> 
-        <span style="margin-left: 0.5rem;"><kbd>/</kbd> Search</span>
-        <span style="margin-left: 0.5rem;"><kbd>ESC</kbd> Clear/Close</span>
-        <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+E</kbd> Export</span>
-        <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+S</kbd> Settings</span>
-      </div>
+      {showShortcuts && (
+        <div style="position: fixed; bottom: 10px; left: 10px; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.75rem; color: #666; border: 1px solid var(--border-color); z-index: 10; display: flex; align-items: center; gap: 1rem;">
+          <div>
+            <strong>Shortcuts:</strong> 
+            <span style="margin-left: 0.5rem;"><kbd>/</kbd> Search</span>
+            <span style="margin-left: 0.5rem;"><kbd>ESC</kbd> Clear/Close</span>
+            <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+E</kbd> Export</span>
+            <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+S</kbd> Settings</span>
+          </div>
+          <button 
+            onClick={() => setShowShortcuts(false)} 
+            class="btn-icon" 
+            style="padding: 0.25rem; font-size: 0.75rem;"
+            title="Close"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      )}
 
       <div class="dashboard-grid">
         {/* Column 1: Statistics */}

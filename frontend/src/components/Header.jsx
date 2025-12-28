@@ -3,8 +3,9 @@ import { route } from 'preact-router';
 import { removeToken, getUser } from '../utils/auth';
 import { logout } from '../utils/api';
 import { getTheme, toggleTheme } from '../utils/theme';
+import NotificationCenter from './NotificationCenter';
 
-export default function Header({ isAuthenticated, setIsAuthenticated }) {
+export default function Header({ isAuthenticated, setIsAuthenticated, notifications = [], onClearAllNotifications, onClearNotification }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [theme, setTheme] = useState('light');
   const user = isAuthenticated ? getUser() : null;
@@ -12,6 +13,17 @@ export default function Header({ isAuthenticated, setIsAuthenticated }) {
   useEffect(() => {
     setTheme(getTheme());
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showUserMenu && !e.target.closest('.user-menu')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showUserMenu]);
 
   const handleLogout = async () => {
     try {
@@ -39,9 +51,15 @@ export default function Header({ isAuthenticated, setIsAuthenticated }) {
         <nav class="nav">
           {isAuthenticated ? (
             <>
-              <a href="/dashboard" class="nav-link">
+              <a href="/dashboard" class="nav-link dashboard-link">
                 Dashboard
               </a>
+              
+              <NotificationCenter 
+                notifications={notifications}
+                onClearAll={onClearAllNotifications}
+                onClear={onClearNotification}
+              />
               
               <button onClick={handleThemeToggle} class="btn-icon theme-toggle" title="Toggle theme">
                 {theme === 'light' ? (
@@ -66,7 +84,10 @@ export default function Header({ isAuthenticated, setIsAuthenticated }) {
               <div class="user-menu">
                 <button 
                   class="user-menu-trigger" 
-                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUserMenu(!showUserMenu);
+                  }}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>

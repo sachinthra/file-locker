@@ -4,7 +4,7 @@ import { getUser, getToken } from '../utils/auth';
 import api from '../utils/api';
 import Toast from '../components/Toast';
 
-export default function Settings({ isAuthenticated }) {
+export default function Settings({ isAuthenticated, addNotification }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,6 +16,9 @@ export default function Settings({ isAuthenticated }) {
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
+    if (addNotification) {
+      addNotification(message, type);
+    }
   };
 
   const closeToast = () => {
