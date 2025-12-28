@@ -47,6 +47,45 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
     loadFiles();
   }, [isAuthenticated]);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if user is typing in an input/textarea or if modal is open
+      const isInputFocused = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+      const isModalOpen = deleteConfirm !== null;
+      
+      // ESC to clear search (when input is focused)
+      if (e.key === 'Escape' && isInputFocused && isSearching) {
+        e.preventDefault();
+        handleClearSearch();
+        document.activeElement.blur();
+        return;
+      }
+
+      // Don't process other shortcuts if modal is open or typing
+      if (isModalOpen || isInputFocused) return;
+
+      // Ctrl/Cmd + E for Export All
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+        e.preventDefault();
+        handleExportAll();
+      }
+      // Ctrl/Cmd + S for Settings
+      else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        route('/settings');
+      }
+      // Forward slash (/) to focus search
+      else if (e.key === '/' && !isInputFocused) {
+        e.preventDefault();
+        document.querySelector('.search-form input')?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSearching, deleteConfirm]);
+
   const loadFiles = async () => {
     setLoading(true);
     setError('');
@@ -175,6 +214,15 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
       {error && <div class="alert alert-error">{error}</div>}
+
+      {/* Keyboard shortcuts hint */}
+      <div style="position: fixed; bottom: 10px; left: 10px; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.75rem; color: #666; border: 1px solid var(--border-color); z-index: 10;">
+        <strong>Shortcuts:</strong> 
+        <span style="margin-left: 0.5rem;"><kbd>/</kbd> Search</span>
+        <span style="margin-left: 0.5rem;"><kbd>ESC</kbd> Clear/Close</span>
+        <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+E</kbd> Export</span>
+        <span style="margin-left: 0.5rem;"><kbd>⌘/Ctrl+S</kbd> Settings</span>
+      </div>
 
       <div class="dashboard-grid">
         {/* Column 1: Statistics */}

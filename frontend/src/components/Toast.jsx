@@ -10,6 +10,17 @@ const Toast = ({ message, type = 'info', onClose, duration = 3000 }) => {
     }
   }, [duration, onClose]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const colors = {
     success: {
       bg: '#10b981',

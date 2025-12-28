@@ -202,6 +202,49 @@ export default function Settings({ isAuthenticated }) {
             <small>Export all your encrypted files</small>
           </div>
         </div>
+
+        {/* Keyboard Shortcuts */}
+        <div class="card settings-section">
+          <h3>Keyboard Shortcuts</h3>
+          <p style="margin-bottom: 1rem; color: #666;">Use these shortcuts to navigate faster</p>
+          
+          <div style="display: grid; gap: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Focus search box</span>
+              <kbd>/</kbd>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Clear search / Close dialogs</span>
+              <kbd>ESC</kbd>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Export all files</span>
+              <div>
+                <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>E</kbd>
+              </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Open settings</span>
+              <div>
+                <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>S</kbd>
+              </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: 4px;">
+              <span>Confirm action in dialogs</span>
+              <div>
+                <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
+              </div>
+            </div>
+          </div>
+          
+          <small style="display: block; margin-top: 1rem; color: #999;">
+            <strong>Tip:</strong> Shortcuts are context-aware and won't interfere when typing in input fields.
+          </small>
+        </div>
       </div>
     </div>
   );

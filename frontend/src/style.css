@@ -115,6 +115,26 @@ button, .btn {
   font-size: 0.875rem;
 }
 
+/* Keyboard shortcut styling */
+kbd {
+  background-color: #f4f4f4;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  margin: 0 0.1rem;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] kbd {
+  background-color: #3d3d3d;
+  border-color: #555;
+  color: #e0e0e0;
+}
+
 .btn-icon {
   padding: 0.5rem;
   background-color: transparent;
@@ -922,7 +942,7 @@ button, .btn {
   .container {
     padding: 1rem;
   }
-  
+
   
   .search-form {
     flex-direction: column;
