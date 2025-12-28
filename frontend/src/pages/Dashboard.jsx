@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'preact/hooks';
 import { route } from 'preact-router';
 import { getUser, getToken, removeToken } from '../utils/auth';
-import { listFiles, searchFiles, deleteFile } from '../utils/api';
+import { listFiles, searchFiles, deleteFile, exportAllFiles } from '../utils/api';
 import FileList from '../components/FileList';
 import FileUpload from '../components/FileUpload';
 import FileStats from '../components/FileStats';
+import Toast from '../components/Toast';
 
 export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
   const [allFiles, setAllFiles] = useState([]);
@@ -13,7 +14,18 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [toast, setToast] = useState(null);
   const user = getUser();
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
 
   useEffect(() => {
     // Check if token exists on page load/reload
@@ -94,10 +106,11 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
 
   const handleUploadComplete = () => {
     loadFiles();
+    showToast('File uploaded successfully!', 'success');
   };
 
   const handleDelete = async (fileId) => {
-    if (!confirm('Are you sure you want to delete this file?')) {
+    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
       return;
     }
 
@@ -108,17 +121,78 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
       setDisplayedFiles(updatedFiles.filter(f => 
         !isSearching || displayedFiles.some(df => df.file_id === f.file_id)
       ));
+      showToast('File deleted successfully', 'success');
     } catch (err) {
-      setError('Failed to delete file');
+      showToast('Failed to delete file', 'error');
       console.error(err);
+    }
+  };
+
+  const handleExportAll = async () => {
+    if (allFiles.length === 0) {
+      showToast('No files to export', 'warning');
+      return;
+    }
+
+    setExporting(true);
+    setExportProgress(0);
+    try {
+      const response = await exportAllFiles((progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setExportProgress(percentCompleted);
+      });
+
+      // Create download link for ZIP
+      const url = window.URL.createObjectURL(response.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `filelocker-export-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      showToast('Files exported successfully!', 'success');
+    } catch (err) {
+      console.error('Export failed:', err);
+      showToast(err.response?.data?.error || 'Failed to export files', 'error');
+    } finally {
+      setExporting(false);
+      setExportProgress(0);
     }
   };
 
   return (
     <div class="dashboard">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+
       <div class="dashboard-header">
-        <h1>Welcome, {user?.username}!</h1>
-        <p>Manage your encrypted files securely</p>
+        <div>
+          <h1>Welcome, {user?.username}!</h1>
+          <p>Manage your encrypted files securely</p>
+        </div>
+        <div>
+          <button 
+            onClick={handleExportAll} 
+            class="btn btn-primary"
+            disabled={exporting || allFiles.length === 0}
+            title="Export all files as ZIP"
+          >
+            {exporting ? (
+              <>
+                <span>Exporting... {exportProgress}%</span>
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Export All ({allFiles.length})
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {error && <div class="alert alert-error">{error}</div>}

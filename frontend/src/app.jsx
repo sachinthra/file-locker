@@ -26,7 +26,7 @@ export function App() {
           <Login path="/login" setIsAuthenticated={setIsAuthenticated} />
           <Register path="/register" />
           <Dashboard path="/dashboard" isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} />
-          <Settings path="/settings" />
+          <Settings path="/settings" isAuthenticated={isAuthenticated} />
         </Router>
       </main>
     </div>

@@ -1,19 +1,84 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
+import { route } from 'preact-router';
+import { getUser, getToken } from '../utils/auth';
+import api from '../utils/api';
+import Toast from '../components/Toast';
 
-export default function Settings() {
+export default function Settings({ isAuthenticated }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [toast, setToast] = useState(null);
+  const user = getUser();
 
-  const handlePasswordChange = (e) => {
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !getToken()) {
+      route('/login', true);
+    }
+  }, [isAuthenticated]);
+
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    setMessage('⚠️ Password change feature is not yet implemented');
-    // TODO: Implement password change API call
+    setError('');
+    setSuccess('');
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('All fields are required');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      setError('New password must be different from current password');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await api.patch('/user/password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+
+      setSuccess(response.data.message || 'Password changed successfully');
+      showToast('Password changed successfully!', 'success');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to change password';
+      setError(errorMsg);
+      showToast(errorMsg, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div class="settings-container">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
       <div class="settings-header">
         <h1>Settings</h1>
         <p>Manage your account preferences and security</p>
@@ -25,20 +90,32 @@ export default function Settings() {
           <h3>Account Information</h3>
           <div class="settings-item">
             <label>Username</label>
-            <input type="text" class="form-input" disabled value="Current user" />
+            <input type="text" class="form-input" disabled value={user?.username || 'N/A'} />
             <small>Username cannot be changed</small>
           </div>
           <div class="settings-item">
             <label>Email</label>
-            <input type="email" class="form-input" disabled value="user@example.com" />
+            <input type="email" class="form-input" disabled value={user?.email || "user@example.com"} />
             <small>Contact admin to change email</small>
           </div>
         </div>
 
         {/* Security Settings */}
         <div class="card settings-section">
-          <h3>Security</h3>
-          {message && <div class="alert alert-warning">{message}</div>}
+          <h3>Change Password</h3>
+          
+          {error && (
+            <div class="alert alert-error" style="margin-bottom: 1rem;">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div class="alert alert-success" style="margin-bottom: 1rem;">
+              {success}
+            </div>
+          )}
+          
           <form onSubmit={handlePasswordChange}>
             <div class="settings-item">
               <label>Current Password</label>
@@ -48,6 +125,8 @@ export default function Settings() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
+                disabled={loading}
+                required
               />
             </div>
             <div class="settings-item">
@@ -57,7 +136,9 @@ export default function Settings() {
                 class="form-input"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
+                placeholder="Enter new password (min 6 characters)"
+                disabled={loading}
+                required
               />
             </div>
             <div class="settings-item">
@@ -68,32 +149,14 @@ export default function Settings() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
+                disabled={loading}
+                required
               />
             </div>
-            <button type="submit" class="btn btn-primary" disabled>
-              Change Password (Coming Soon)
+            <button type="submit" class="btn btn-primary" disabled={loading}>
+              {loading ? 'Changing Password...' : 'Change Password'}
             </button>
           </form>
-        </div>
-
-        {/* Storage Settings */}
-        <div class="card settings-section">
-          <h3>Storage</h3>
-          <div class="settings-item">
-            <label>Default File Expiration</label>
-            <select class="form-input" disabled>
-              <option>Never</option>
-              <option>24 hours</option>
-              <option>7 days</option>
-              <option>30 days</option>
-            </select>
-            <small>Coming soon</small>
-          </div>
-          <div class="settings-item">
-            <label>Auto-delete After Download</label>
-            <input type="checkbox" disabled />
-            <small>Coming soon</small>
-          </div>
         </div>
 
         {/* Appearance Settings */}

@@ -76,4 +76,11 @@ export const getStreamUrl = (fileId) => {
   return `${API_BASE_URL}/stream/${fileId}?token=${token}`;
 };
 
+export const exportAllFiles = (onProgress) => {
+  return api.get('/files/export', {
+    responseType: 'blob',
+    onDownloadProgress: onProgress
+  });
+};
+
 export default api;

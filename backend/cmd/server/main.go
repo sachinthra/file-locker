@@ -90,10 +90,12 @@ func main() {
 
 	// Initialize API handlers
 	authHandler := api.NewAuthHandler(jwtService, redisCache, pgStore)
+	userHandler := api.NewUserHandler(pgStore)
 	uploadHandler := api.NewUploadHandler(minioStorage, redisCache, pgStore)
 	downloadHandler := api.NewDownloadHandler(minioStorage, redisCache, pgStore)
 	streamHandler := api.NewStreamHandler(minioStorage, redisCache, pgStore)
 	filesHandler := api.NewFilesHandler(redisCache, minioStorage, pgStore)
+	exportHandler := api.NewExportHandler(minioStorage, pgStore)
 
 	log.Println("✓ API handlers initialized")
 
@@ -162,10 +164,14 @@ func main() {
 			r.Post("/upload", uploadHandler.HandleUpload)
 			r.Get("/files", filesHandler.HandleListFiles)
 			r.Get("/files/search", filesHandler.HandleSearchFiles)
+			r.Get("/files/export", exportHandler.HandleExportAll)
 			r.Delete("/files", filesHandler.HandleDeleteFile)
 			r.Patch("/files/{fileID}", filesHandler.HandleUpdateFile)
 			r.Get("/download/{id}", downloadHandler.HandleDownload)
 			r.Get("/stream/{id}", streamHandler.HandleStream)
+
+			// User operations
+			r.Patch("/user/password", userHandler.HandleChangePassword)
 
 			// Auth operations
 			r.Post("/auth/logout", authHandler.HandleLogout)
