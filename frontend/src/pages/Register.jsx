@@ -1,6 +1,7 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { route } from 'preact-router';
 import { register } from '../utils/api';
+import { getToken } from '../utils/auth';
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -8,6 +9,13 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // If already logged in, redirect to dashboard
+    if (getToken()) {
+      route('/dashboard', true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

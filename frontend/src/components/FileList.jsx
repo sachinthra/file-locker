@@ -53,9 +53,9 @@ export default function FileList({ files, onDelete }) {
       <h3>Your Files ({files.length})</h3>
       <div class="file-list">
         {files.map(file => (
-          <div key={file.id} class="file-item">
+          <div key={file.file_id} class="file-item">
             <div class="file-icon">
-              {isVideoFile(file.filename) ? (
+              {isVideoFile(file.file_name) ? (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
@@ -68,11 +68,11 @@ export default function FileList({ files, onDelete }) {
             </div>
             
             <div class="file-details">
-              <div class="file-name">{file.filename}</div>
+              <div class="file-name">{file.file_name}</div>
               <div class="file-meta">
                 <span>{formatFileSize(file.size)}</span>
                 <span>•</span>
-                <span>Uploaded: {formatDate(file.uploaded_at)}</span>
+                <span>Uploaded: {formatDate(file.created_at)}</span>
                 {file.expires_at && (
                   <>
                     <span>•</span>
@@ -90,10 +90,10 @@ export default function FileList({ files, onDelete }) {
             </div>
 
             <div class="file-actions">
-              {isVideoFile(file.filename) && (
+              {isVideoFile(file.file_name) && (
                 <button
                   class="btn btn-icon"
-                  onClick={() => handleStream(file.id, file.filename)}
+                  onClick={() => handleStream(file.file_id, file.file_name)}
                   title="Stream video"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -104,7 +104,7 @@ export default function FileList({ files, onDelete }) {
               
               <button
                 class="btn btn-icon"
-                onClick={() => handleDownload(file.id, file.filename)}
+                onClick={() => handleDownload(file.file_id, file.file_name)}
                 title="Download"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -116,7 +116,7 @@ export default function FileList({ files, onDelete }) {
               
               <button
                 class="btn btn-icon btn-danger"
-                onClick={() => onDelete(file.id)}
+                onClick={() => onDelete(file.file_id)}
                 title="Delete"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">

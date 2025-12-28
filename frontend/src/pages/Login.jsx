@@ -1,13 +1,20 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { route } from 'preact-router';
 import { login } from '../utils/api';
-import { saveToken, saveUser } from '../utils/auth';
+import { saveToken, saveUser, getToken } from '../utils/auth';
 
 export default function Login({ setIsAuthenticated }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // If already logged in, redirect to dashboard
+    if (getToken()) {
+      route('/dashboard', true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

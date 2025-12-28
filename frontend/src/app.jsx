@@ -4,7 +4,9 @@ import Header from './components/Header';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
 import { getToken } from './utils/auth';
+import { initTheme } from './utils/theme';
 
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -12,6 +14,7 @@ export function App() {
   useEffect(() => {
     const token = getToken();
     setIsAuthenticated(!!token);
+    initTheme();
   }, []);
 
   return (
@@ -22,7 +25,8 @@ export function App() {
           <Login path="/" setIsAuthenticated={setIsAuthenticated} />
           <Login path="/login" setIsAuthenticated={setIsAuthenticated} />
           <Register path="/register" />
-          <Dashboard path="/dashboard" isAuthenticated={isAuthenticated} />
+          <Dashboard path="/dashboard" isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} />
+          <Settings path="/settings" />
         </Router>
       </main>
     </div>
