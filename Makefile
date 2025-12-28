@@ -85,21 +85,21 @@ dev: sync-config ## Start both backend and frontend locally (Parallel)
 # -----------------------------------------------------------------
 docker-build: sync-config ## Build Docker images
 	@echo "$(BLUE)Building Docker images...$(NC)"
-	docker-compose build
+	docker compose build
 
 docker-up: sync-config ## Start all services with Docker Compose
 	@echo "$(BLUE)Starting services...$(NC)"
-	docker-compose up -d
+	docker compose up -d
 	@echo "$(GREEN)Services started!$(NC)"
 	@echo "Web UI: http://localhost:9010"
 	@echo "MinIO: http://localhost:9013"
 
 docker-down: ## Stop all services
 	@echo "$(YELLOW)Stopping services...$(NC)"
-	docker-compose down
+	docker compose down
 
 docker-logs: ## Show Docker logs
-	docker-compose logs -f
+	docker compose logs -f
 
 docker-restart: docker-down docker-up ## Restart all services
 
@@ -145,13 +145,13 @@ proto-gen: ## Generate gRPC code from proto files
 
 init-minio: ## Initialize MinIO bucket (requires docker-up)
 	@echo "$(BLUE)Initializing MinIO bucket...$(NC)"
-	docker-compose exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
-	docker-compose exec minio mc mb local/filelocker || true
+	docker compose exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
+	docker compose exec minio mc mb local/filelocker || true
 	@echo "$(GREEN)MinIO bucket initialized!$(NC)"
 
 status: ## Show Docker service status
 	@echo "$(BLUE)Service Status:$(NC)"
-	@docker-compose ps
+	@docker compose ps
 
 # -----------------------------------------------------------------
 # CLEANUP
@@ -166,7 +166,7 @@ clean-frontend: ## Clean frontend build artifacts
 
 clean-docker: ## Remove Docker volumes and images
 	@echo "$(RED)Removing Docker volumes and images...$(NC)"
-	docker-compose down -v
+	docker compose down -v
 	docker system prune -f
 
 clean: clean-backend clean-frontend ## Clean all build artifacts

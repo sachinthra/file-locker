@@ -47,7 +47,7 @@ func TestNewAuthMiddleware(t *testing.T) {
 	jwtService := NewJWTService("test-secret", 3600)
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
 
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	if middleware == nil {
 		t.Fatal("Expected middleware to be created")
@@ -67,7 +67,7 @@ func TestRequireAuth_NoAuthHeader(t *testing.T) {
 
 	// Create actual AuthMiddleware with type assertion workaround
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	handler := middleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -86,7 +86,7 @@ func TestRequireAuth_NoAuthHeader(t *testing.T) {
 func TestRequireAuth_InvalidFormat(t *testing.T) {
 	jwtService := NewJWTService("test-secret", 3600)
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	handler := middleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -119,7 +119,7 @@ func TestRequireAuth_InvalidFormat(t *testing.T) {
 func TestRequireAuth_InvalidToken(t *testing.T) {
 	jwtService := NewJWTService("test-secret", 3600)
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	handler := middleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -145,7 +145,7 @@ func TestRequireAuth_ContextUserID(t *testing.T) {
 func TestRateLimitMiddleware_NoAuth(t *testing.T) {
 	jwtService := NewJWTService("test-secret", 3600)
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	rateLimiter := middleware.RateLimitMiddleware(5, 1*time.Minute)
 	handler := rateLimiter(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +176,7 @@ func TestRequireAuth_ExpiredToken(t *testing.T) {
 	// Create service with 1 second expiry
 	jwtService := NewJWTService("test-secret", 1)
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	// Generate token
 	token, err := jwtService.GenerateToken("user123")
@@ -228,7 +228,7 @@ func TestRateLimitMiddleware_WindowCalculation(t *testing.T) {
 func TestAuthMiddleware_ChainedMiddleware(t *testing.T) {
 	jwtService := NewJWTService("test-secret", 3600)
 	redis, _ := storage.NewRedisCache("localhost:6379", "", 0)
-	middleware := NewAuthMiddleware(jwtService, redis)
+	middleware := NewAuthMiddleware(jwtService, redis, nil)
 
 	// Create a chain of middleware
 	rateLimiter := middleware.RateLimitMiddleware(5, 1*time.Minute)

@@ -2,10 +2,13 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"log"
 
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
@@ -13,13 +16,15 @@ import (
 type AuthMiddleware struct {
 	jwtService *JWTService
 	redisCache *storage.RedisCache
+	pg         *storage.PostgresStore
 }
 
 // NewAuthMiddleware creates auth middleware
-func NewAuthMiddleware(jwtService *JWTService, redisCache *storage.RedisCache) *AuthMiddleware {
+func NewAuthMiddleware(jwtService *JWTService, redisCache *storage.RedisCache, pg *storage.PostgresStore) *AuthMiddleware {
 	return &AuthMiddleware{
 		jwtService: jwtService,
 		redisCache: redisCache,
+		pg:         pg,
 	}
 }
 
@@ -49,6 +54,34 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
+		// If token looks like PAT (starts with fl_), verify against DB
+		if strings.HasPrefix(tokenString, "fl_") {
+			// delegate verification to PostgresStore helper
+			if a.pg == nil {
+				log.Printf("[auth] PAT lookup requested but PostgresStore not available from %s", r.RemoteAddr)
+				http.Error(w, `{"error":"token lookup not available"}`, http.StatusInternalServerError)
+				return
+			}
+			tokenID, userID, err := a.pg.VerifyPersonalAccessToken(context.Background(), tokenString)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					log.Printf("[auth] PAT verify failed: not found from %s", r.RemoteAddr)
+					http.Error(w, `{"error":"Invalid token"}`, http.StatusUnauthorized)
+					return
+				}
+				log.Printf("[auth] PAT verify error from %s: %v", r.RemoteAddr, err)
+				http.Error(w, `{"error":"token lookup failed"}`, http.StatusInternalServerError)
+				return
+			}
+			// token verified; set userID in context
+			log.Printf("[auth] PAT accepted id=%s user=%s from=%s", tokenID, userID, r.RemoteAddr)
+			ctx := context.WithValue(r.Context(), "userID", userID)
+			// optionally attach token ID
+			ctx = context.WithValue(ctx, "patID", tokenID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
 		// 4. Validate token with jwtService
 		claims, err := a.jwtService.ValidateToken(tokenString)
 		if err != nil {
@@ -73,7 +106,7 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 		// 7. Set userID in context
 		ctx = context.WithValue(r.Context(), "userID", claims.UserID)
 
-		// 7. Call next handler with updated context
+		// 8. Call next handler with updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -100,3 +100,17 @@ COMMENT ON TABLE users IS 'Stores user account information';
 COMMENT ON TABLE files IS 'Stores encrypted file metadata';
 COMMENT ON COLUMN files.encryption_key IS 'Base64 encoded AES-256 key for file decryption';
 COMMENT ON COLUMN files.minio_path IS 'Path/key in MinIO object storage';
+
+-- Create personal_access_tokens table for Personal Access Tokens (PATs)
+CREATE TABLE IF NOT EXISTS personal_access_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  token_hash TEXT NOT NULL,
+  last_used_at TIMESTAMP WITH TIME ZONE NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pat_user_id ON personal_access_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_pat_expires_at ON personal_access_tokens(expires_at);

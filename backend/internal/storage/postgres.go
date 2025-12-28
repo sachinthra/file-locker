@@ -7,6 +7,8 @@ import (
 	"log"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/lib/pq"
 )
 
@@ -54,6 +56,43 @@ func NewPostgresStore(host, port, user, password, dbname string) (*PostgresStore
 // Close closes the database connection
 func (p *PostgresStore) Close() error {
 	return p.db.Close()
+}
+
+// DB returns the underlying *sql.DB for advanced queries when necessary
+func (p *PostgresStore) DB() *sql.DB {
+	return p.db
+}
+
+// VerifyPersonalAccessToken verifies a raw personal access token against stored bcrypt hashes.
+// Returns tokenID and userID on success, or sql.ErrNoRows if not found.
+func (p *PostgresStore) VerifyPersonalAccessToken(ctx context.Context, rawToken string) (string, string, error) {
+	rows, err := p.db.QueryContext(ctx, `SELECT id, user_id, token_hash FROM personal_access_tokens WHERE expires_at IS NULL OR expires_at > NOW()`)
+	if err != nil {
+		log.Printf("[store] VerifyPAT query error: %v", err)
+		return "", "", err
+	}
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		count++
+		var id string
+		var uid string
+		var thash string
+		if err := rows.Scan(&id, &uid, &thash); err != nil {
+			log.Printf("[store] VerifyPAT scan error: %v", err)
+			continue
+		}
+		if bcrypt.CompareHashAndPassword([]byte(thash), []byte(rawToken)) == nil {
+			// update last_used_at (best-effort)
+			if _, err := p.db.ExecContext(ctx, `UPDATE personal_access_tokens SET last_used_at = $1 WHERE id = $2`, time.Now().UTC(), id); err != nil {
+				log.Printf("[store] failed to update last_used_at for id=%s: %v", id, err)
+			}
+			log.Printf("[store] VerifyPAT matched id=%s user=%s (scanned=%d)", id, uid, count)
+			return id, uid, nil
+		}
+	}
+	log.Printf("[store] VerifyPAT no match (scanned=%d)", count)
+	return "", "", sql.ErrNoRows
 }
 
 // =====================================================

@@ -86,11 +86,12 @@ func main() {
 	log.Println("✓ JWT service initialized")
 
 	// Initialize auth middleware
-	authMiddleware := auth.NewAuthMiddleware(jwtService, redisCache)
+	authMiddleware := auth.NewAuthMiddleware(jwtService, redisCache, pgStore)
 
 	// Initialize API handlers
 	authHandler := api.NewAuthHandler(jwtService, redisCache, pgStore)
 	userHandler := api.NewUserHandler(pgStore)
+	tokensHandler := api.NewTokensHandler(pgStore)
 	uploadHandler := api.NewUploadHandler(minioStorage, redisCache, pgStore)
 	downloadHandler := api.NewDownloadHandler(minioStorage, redisCache, pgStore)
 	streamHandler := api.NewStreamHandler(minioStorage, redisCache, pgStore)
@@ -175,6 +176,11 @@ func main() {
 
 			// Auth operations
 			r.Post("/auth/logout", authHandler.HandleLogout)
+
+			// Personal Access Tokens (PATs)
+			r.Post("/auth/tokens", tokensHandler.HandleCreateToken)
+			r.Get("/auth/tokens", tokensHandler.HandleListTokens)
+			r.Delete("/auth/tokens/{id}", tokensHandler.HandleRevokeToken)
 		})
 	})
 
