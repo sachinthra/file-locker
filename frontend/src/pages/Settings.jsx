@@ -79,6 +79,11 @@ export default function Settings({ isAuthenticated }) {
   return (
     <div class="settings-container">
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+        <div class="dashboard-header">
+            <h1>Welcome, {user?.username}!</h1>
+            <p>Manage your encrypted files securely</p>
+      </div>
+
       <div class="settings-header">
         <h1>Settings</h1>
         <p>Manage your account preferences and security</p>

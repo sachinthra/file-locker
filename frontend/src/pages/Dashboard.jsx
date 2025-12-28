@@ -6,6 +6,7 @@ import FileList from '../components/FileList';
 import FileUpload from '../components/FileUpload';
 import FileStats from '../components/FileStats';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
   const [allFiles, setAllFiles] = useState([]);
@@ -17,6 +18,7 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [toast, setToast] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const user = getUser();
 
   const showToast = (message, type = 'info') => {
@@ -109,10 +111,13 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
     showToast('File uploaded successfully!', 'success');
   };
 
-  const handleDelete = async (fileId) => {
-    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      return;
-    }
+  const handleDelete = (fileId) => {
+    setDeleteConfirm(fileId);
+  };
+
+  const confirmDelete = async () => {
+    const fileId = deleteConfirm;
+    setDeleteConfirm(null);
 
     try {
       await deleteFile(fileId);
@@ -126,6 +131,10 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
       showToast('Failed to delete file', 'error');
       console.error(err);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null);
   };
 
   const handleExportAll = async () => {
@@ -164,11 +173,6 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
   return (
     <div class="dashboard">
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
-
-      <div class="dashboard-header">
-        <h1>Welcome, {user?.username}!</h1>
-        <p>Manage your encrypted files securely</p>
-      </div>
 
       {error && <div class="alert alert-error">{error}</div>}
 
@@ -249,6 +253,20 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={deleteConfirm !== null}
+        title="Confirm Delete"
+        message="Are you sure you want to delete this file? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmStyle="danger"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </div>
   );
 }
