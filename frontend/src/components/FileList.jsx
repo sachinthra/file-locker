@@ -1,6 +1,9 @@
+import { useState } from 'preact/hooks';
 import { getDownloadUrl, getStreamUrl } from '../utils/api';
 
 export default function FileList({ files, onDelete }) {
+  const [streamingFile, setStreamingFile] = useState(null);
+  
   if (!files || files.length === 0) {
     return (
       <div class="card" style="margin-top: 2rem; text-align: center; padding: 3rem">
@@ -44,11 +47,39 @@ export default function FileList({ files, onDelete }) {
   };
 
   const handleStream = (fileId, filename) => {
-    const streamUrl = getStreamUrl(fileId);
-    window.open(streamUrl, '_blank');
+    setStreamingFile({ fileId, filename });
+  };
+
+  const closePlayer = () => {
+    setStreamingFile(null);
   };
 
   return (
+    <>
+      {streamingFile && (
+        <div class="modal-overlay" onClick={closePlayer}>
+          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div class="modal-header">
+              <h3>{streamingFile.filename}</h3>
+              <button class="btn btn-icon" onClick={closePlayer} title="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <video 
+              controls 
+              autoplay
+              style="width: 100%; max-height: 70vh; background: #000;"
+              src={getStreamUrl(streamingFile.fileId)}
+            >
+              Your browser does not support video playback.
+            </video>
+          </div>
+        </div>
+      )}
+      
     <div class="card" style="margin-top: 2rem">
       <h3>Your Files ({files.length})</h3>
       <div class="file-list">
@@ -129,5 +160,6 @@ export default function FileList({ files, onDelete }) {
         ))}
       </div>
     </div>
+    </>
   );
 }
