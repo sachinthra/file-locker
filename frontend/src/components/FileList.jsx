@@ -7,8 +7,8 @@ export default function FileList({ files, onDelete, onUpdate }) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [streamLoading, setStreamLoading] = useState(false);
   const [editingFile, setEditingFile] = useState(null);
-  const [editDisplayName, setEditDisplayName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editTags, setEditTags] = useState('');
   const [updating, setUpdating] = useState(false);
   
   if (!files || files.length === 0) {
@@ -83,8 +83,8 @@ export default function FileList({ files, onDelete, onUpdate }) {
 
   const handleEdit = (file) => {
     setEditingFile(file);
-    setEditDisplayName(file.display_name || file.file_name);
     setEditDescription(file.description || '');
+    setEditTags(file.tags ? file.tags.join(', ') : '');
   };
 
   const handleUpdateSubmit = async (e) => {
@@ -93,9 +93,14 @@ export default function FileList({ files, onDelete, onUpdate }) {
 
     setUpdating(true);
     try {
+      const tagsArray = editTags
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+
       await updateFile(editingFile.file_id, {
-        display_name: editDisplayName,
-        description: editDescription
+        description: editDescription,
+        tags: tagsArray
       });
 
       setEditingFile(null);
@@ -112,8 +117,8 @@ export default function FileList({ files, onDelete, onUpdate }) {
 
   const closeEditModal = () => {
     setEditingFile(null);
-    setEditDisplayName('');
     setEditDescription('');
+    setEditTags('');
   };
 
   return (
@@ -132,17 +137,6 @@ export default function FileList({ files, onDelete, onUpdate }) {
             </div>
             <form onSubmit={handleUpdateSubmit} style="padding: 1.5rem">
               <div class="form-group">
-                <label class="form-label">Display Name</label>
-                <input
-                  type="text"
-                  class="form-input"
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  disabled={updating}
-                  required
-                />
-              </div>
-              <div class="form-group">
                 <label class="form-label">Description</label>
                 <textarea
                   class="form-input"
@@ -152,6 +146,20 @@ export default function FileList({ files, onDelete, onUpdate }) {
                   rows="4"
                   placeholder="Add a description..."
                 />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tags</label>
+                <input
+                  type="text"
+                  class="form-input"
+                  value={editTags}
+                  onChange={(e) => setEditTags(e.target.value)}
+                  disabled={updating}
+                  placeholder="Enter tags separated by commas (e.g., work, important, 2024)"
+                />
+                <small style="color: #666; font-size: 0.875rem; margin-top: 0.25rem; display: block;">
+                  Separate multiple tags with commas
+                </small>
               </div>
               <div style="display: flex; gap: 0.5rem; justify-content: flex-end">
                 <button type="button" class="btn btn-secondary" onClick={closeEditModal} disabled={updating}>
@@ -221,7 +229,7 @@ export default function FileList({ files, onDelete, onUpdate }) {
             </div>
             
             <div class="file-details">
-              <div class="file-name">{file.display_name || file.file_name}</div>
+              <div class="file-name">{file.file_name}</div>
               {file.description && (
                 <div class="file-description" style="color: #666; font-size: 0.9rem; margin-top: 0.25rem">
                   {file.description}

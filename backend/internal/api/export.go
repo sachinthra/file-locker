@@ -95,9 +95,6 @@ func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) 
 
 		// Create a sanitized filename (avoid path traversal)
 		safeFileName := filepath.Base(metadata.FileName)
-		if metadata.DisplayName != "" {
-			safeFileName = filepath.Base(metadata.DisplayName)
-		}
 
 		// Create entry in ZIP
 		zipFileWriter, err := zipWriter.Create(safeFileName)

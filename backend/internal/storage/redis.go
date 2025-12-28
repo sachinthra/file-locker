@@ -20,7 +20,6 @@ type FileMetadata struct {
 	FileID        string     `json:"file_id"`
 	UserID        string     `json:"user_id"`
 	FileName      string     `json:"file_name"`
-	DisplayName   string     `json:"display_name,omitempty"`
 	Description   string     `json:"description,omitempty"`
 	MimeType      string     `json:"mime_type"`
 	Size          int64      `json:"size"`

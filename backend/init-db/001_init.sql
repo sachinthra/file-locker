@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     file_name VARCHAR(1024) NOT NULL,
-    display_name VARCHAR(1024),
     description TEXT,
     mime_type VARCHAR(255) NOT NULL,
     size BIGINT NOT NULL,
@@ -55,7 +54,6 @@ CREATE INDEX idx_files_tags ON files USING GIN(tags);
 -- Index for full-text search on file names and descriptions
 CREATE INDEX idx_files_search ON files USING gin(to_tsvector('english', 
     COALESCE(file_name, '') || ' ' || 
-    COALESCE(display_name, '') || ' ' || 
     COALESCE(description, '')
 ));
 

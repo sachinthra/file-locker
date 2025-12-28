@@ -26,7 +26,6 @@ func NewFilesHandler(redisCache *storage.RedisCache, minioStorage *storage.MinIO
 type FileInfo struct {
 	FileID        string     `json:"file_id"`
 	FileName      string     `json:"file_name"`
-	DisplayName   string     `json:"display_name,omitempty"`
 	Description   string     `json:"description,omitempty"`
 	MimeType      string     `json:"mime_type"`
 	Size          int64      `json:"size"`
@@ -64,7 +63,6 @@ func (h *FilesHandler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 		files = append(files, FileInfo{
 			FileID:        metadata.FileID,
 			FileName:      metadata.FileName,
-			DisplayName:   metadata.DisplayName,
 			Description:   metadata.Description,
 			MimeType:      metadata.MimeType,
 			Size:          metadata.Size,
@@ -116,7 +114,6 @@ func (h *FilesHandler) HandleSearchFiles(w http.ResponseWriter, r *http.Request)
 		matchingFiles = append(matchingFiles, FileInfo{
 			FileID:        metadata.FileID,
 			FileName:      metadata.FileName,
-			DisplayName:   metadata.DisplayName,
 			Description:   metadata.Description,
 			MimeType:      metadata.MimeType,
 			Size:          metadata.Size,
@@ -181,8 +178,8 @@ func (h *FilesHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) 
 }
 
 type UpdateFileRequest struct {
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
 }
 
 func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) {
@@ -221,15 +218,15 @@ func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Update metadata in PostgreSQL
-	if err := h.pgStore.UpdateFileMetadata(r.Context(), fileID, req.DisplayName, req.Description); err != nil {
+	if err := h.pgStore.UpdateFileMetadata(r.Context(), fileID, req.Description, req.Tags); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to update file metadata")
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"message":      "File updated successfully",
-		"file_id":      fileID,
-		"display_name": req.DisplayName,
-		"description":  req.Description,
+		"message":     "File updated successfully",
+		"file_id":     fileID,
+		"description": req.Description,
+		"tags":        req.Tags,
 	})
 }

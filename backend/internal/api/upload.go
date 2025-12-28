@@ -133,7 +133,6 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		FileID:        fileID,
 		UserID:        userID,
 		FileName:      header.Filename,
-		DisplayName:   header.Filename, // Default to original filename
 		Description:   description,
 		MimeType:      contentType,
 		Size:          header.Size,

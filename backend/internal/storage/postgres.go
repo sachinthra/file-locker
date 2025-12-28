@@ -190,17 +190,16 @@ func (p *PostgresStore) SaveFileMetadata(ctx context.Context, metadata *FileMeta
 
 	query := `
 		INSERT INTO files (
-			id, user_id, file_name, display_name, description, mime_type, 
+			id, user_id, file_name, description, mime_type, 
 			size, encrypted_size, minio_path, encryption_key, 
 			created_at, expires_at, download_count, tags
-		) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	_, err := p.db.ExecContext(ctx, query,
 		metadata.FileID,
 		metadata.UserID,
 		metadata.FileName,
-		metadata.DisplayName,
 		metadata.Description,
 		metadata.MimeType,
 		metadata.Size,
@@ -226,7 +225,7 @@ func (p *PostgresStore) SaveFileMetadata(ctx context.Context, metadata *FileMeta
 // GetFileMetadata retrieves file metadata by file ID
 func (p *PostgresStore) GetFileMetadata(ctx context.Context, fileID string) (*FileMetadata, error) {
 	query := `
-		SELECT id, user_id, file_name, display_name, description, mime_type,
+		SELECT id, user_id, file_name, description, mime_type,
 		       size, encrypted_size, minio_path, encryption_key,
 		       created_at, expires_at, download_count, tags
 		FROM files
@@ -234,14 +233,13 @@ func (p *PostgresStore) GetFileMetadata(ctx context.Context, fileID string) (*Fi
 	`
 
 	var metadata FileMetadata
-	var displayName, description sql.NullString
+	var description sql.NullString
 	var expiresAt sql.NullTime
 
 	err := p.db.QueryRowContext(ctx, query, fileID).Scan(
 		&metadata.FileID,
 		&metadata.UserID,
 		&metadata.FileName,
-		&displayName,
 		&description,
 		&metadata.MimeType,
 		&metadata.Size,
@@ -262,9 +260,6 @@ func (p *PostgresStore) GetFileMetadata(ctx context.Context, fileID string) (*Fi
 	}
 
 	// Handle nullable fields
-	if displayName.Valid {
-		metadata.DisplayName = displayName.String
-	}
 	if description.Valid {
 		metadata.Description = description.String
 	}
@@ -275,15 +270,15 @@ func (p *PostgresStore) GetFileMetadata(ctx context.Context, fileID string) (*Fi
 	return &metadata, nil
 }
 
-// UpdateFileMetadata updates file metadata (for rename/description changes)
-func (p *PostgresStore) UpdateFileMetadata(ctx context.Context, fileID, displayName, description string) error {
+// UpdateFileMetadata updates file metadata (for description/tags changes)
+func (p *PostgresStore) UpdateFileMetadata(ctx context.Context, fileID, description string, tags []string) error {
 	query := `
 		UPDATE files
-		SET display_name = $1, description = $2
+		SET description = $1, tags = $2
 		WHERE id = $3
 	`
 
-	result, err := p.db.ExecContext(ctx, query, displayName, description, fileID)
+	result, err := p.db.ExecContext(ctx, query, description, pq.Array(tags), fileID)
 	if err != nil {
 		return fmt.Errorf("failed to update file metadata: %w", err)
 	}
@@ -303,7 +298,7 @@ func (p *PostgresStore) UpdateFileMetadata(ctx context.Context, fileID, displayN
 // ListUserFiles retrieves all files for a user
 func (p *PostgresStore) ListUserFiles(ctx context.Context, userID string) ([]*FileMetadata, error) {
 	query := `
-		SELECT id, user_id, file_name, display_name, description, mime_type,
+		SELECT id, user_id, file_name, description, mime_type,
 		       size, encrypted_size, minio_path, encryption_key,
 		       created_at, expires_at, download_count, tags
 		FROM files
@@ -320,14 +315,13 @@ func (p *PostgresStore) ListUserFiles(ctx context.Context, userID string) ([]*Fi
 	var files []*FileMetadata
 	for rows.Next() {
 		var metadata FileMetadata
-		var displayName, description sql.NullString
+		var description sql.NullString
 		var expiresAt sql.NullTime
 
 		err := rows.Scan(
 			&metadata.FileID,
 			&metadata.UserID,
 			&metadata.FileName,
-			&displayName,
 			&description,
 			&metadata.MimeType,
 			&metadata.Size,
@@ -344,9 +338,6 @@ func (p *PostgresStore) ListUserFiles(ctx context.Context, userID string) ([]*Fi
 		}
 
 		// Handle nullable fields
-		if displayName.Valid {
-			metadata.DisplayName = displayName.String
-		}
 		if description.Valid {
 			metadata.Description = description.String
 		}
@@ -367,13 +358,12 @@ func (p *PostgresStore) ListUserFiles(ctx context.Context, userID string) ([]*Fi
 // SearchFiles searches files by filename or tags
 func (p *PostgresStore) SearchFiles(ctx context.Context, userID, query string) ([]*FileMetadata, error) {
 	sqlQuery := `
-		SELECT id, user_id, file_name, display_name, description, mime_type,
+		SELECT id, user_id, file_name, description, mime_type,
 		       size, encrypted_size, minio_path, encryption_key,
 		       created_at, expires_at, download_count, tags
 		FROM files
 		WHERE user_id = $1 AND (
 			file_name ILIKE $2 OR
-			display_name ILIKE $2 OR
 			description ILIKE $2 OR
 			$3 = ANY(tags)
 		)
@@ -390,14 +380,13 @@ func (p *PostgresStore) SearchFiles(ctx context.Context, userID, query string) (
 	var files []*FileMetadata
 	for rows.Next() {
 		var metadata FileMetadata
-		var displayName, description sql.NullString
+		var description sql.NullString
 		var expiresAt sql.NullTime
 
 		err := rows.Scan(
 			&metadata.FileID,
 			&metadata.UserID,
 			&metadata.FileName,
-			&displayName,
 			&description,
 			&metadata.MimeType,
 			&metadata.Size,
@@ -414,9 +403,6 @@ func (p *PostgresStore) SearchFiles(ctx context.Context, userID, query string) (
 		}
 
 		// Handle nullable fields
-		if displayName.Valid {
-			metadata.DisplayName = displayName.String
-		}
 		if description.Valid {
 			metadata.Description = description.String
 		}
@@ -474,7 +460,7 @@ func (p *PostgresStore) IncrementDownloadCount(ctx context.Context, fileID strin
 // GetExpiredFiles retrieves all files that have expired
 func (p *PostgresStore) GetExpiredFiles(ctx context.Context) ([]*FileMetadata, error) {
 	query := `
-		SELECT id, user_id, file_name, display_name, description, mime_type,
+		SELECT id, user_id, file_name, description, mime_type,
 		       size, encrypted_size, minio_path, encryption_key,
 		       created_at, expires_at, download_count, tags
 		FROM files
@@ -491,14 +477,13 @@ func (p *PostgresStore) GetExpiredFiles(ctx context.Context) ([]*FileMetadata, e
 	var files []*FileMetadata
 	for rows.Next() {
 		var metadata FileMetadata
-		var displayName, description sql.NullString
+		var description sql.NullString
 		var expiresAt sql.NullTime
 
 		err := rows.Scan(
 			&metadata.FileID,
 			&metadata.UserID,
 			&metadata.FileName,
-			&displayName,
 			&description,
 			&metadata.MimeType,
 			&metadata.Size,
@@ -515,9 +500,6 @@ func (p *PostgresStore) GetExpiredFiles(ctx context.Context) ([]*FileMetadata, e
 		}
 
 		// Handle nullable fields
-		if displayName.Valid {
-			metadata.DisplayName = displayName.String
-		}
 		if description.Valid {
 			metadata.Description = description.String
 		}
