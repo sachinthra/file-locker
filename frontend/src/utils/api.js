@@ -29,6 +29,10 @@ export const logout = () => {
   return api.post('/auth/logout');
 };
 
+export const getMe = () => {
+  return api.get('/auth/me');
+};
+
 // File APIs
 export const uploadFile = (file, tags, expireAfter, description, onProgress) => {
   const formData = new FormData();

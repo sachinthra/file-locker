@@ -13,13 +13,18 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255) NOT NULL,
     password_hash TEXT NOT NULL,
+    role VARCHAR(20) DEFAULT 'user' NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT users_role_check CHECK (role IN ('user', 'admin'))
 );
 
 -- Index for fast username lookup
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
 
 -- =====================================================
 -- FILES TABLE
@@ -101,6 +106,36 @@ COMMENT ON TABLE files IS 'Stores encrypted file metadata';
 COMMENT ON COLUMN files.encryption_key IS 'Base64 encoded AES-256 key for file decryption';
 COMMENT ON COLUMN files.minio_path IS 'Path/key in MinIO object storage';
 
+-- =====================================================
+-- DEFAULT ADMIN USER
+-- =====================================================
+-- Create default admin user (username: admin, password: password123)
+-- Password hash is bcrypt hash of "password123" with cost 10
+-- IMPORTANT: Change this password immediately after first login!
+INSERT INTO users (id, username, email, password_hash, role) 
+VALUES (
+    'a0000000-0000-0000-0000-000000000001',
+    'admin',
+    'admin@filelocker.local',
+    '$2a$10$Ak5bcSPwUWFPITX.F/onhewwBPSx2uLeIHLnD./1vX/ZW4oGB2P3W',
+    'admin'
+)
+ON CONFLICT (username) DO NOTHING;
+
+-- Log the creation
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'admin') THEN
+        RAISE NOTICE '✅ Default admin user created successfully';
+        RAISE NOTICE '   Username: admin';
+        RAISE NOTICE '   Password: password123';
+        RAISE NOTICE '   ⚠️  CHANGE THIS PASSWORD IMMEDIATELY!';
+    END IF;
+END $$;
+
+-- =====================================================
+-- PERSONAL ACCESS TOKENS TABLE
+-- =====================================================
 -- Create personal_access_tokens table for Personal Access Tokens (PATs)
 CREATE TABLE IF NOT EXISTS personal_access_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

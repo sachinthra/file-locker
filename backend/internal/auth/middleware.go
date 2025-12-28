@@ -111,6 +111,38 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+// RequireAdmin middleware ensures the user is authenticated AND has admin role
+func (a *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Get userID from context (set by RequireAuth)
+		userID := r.Context().Value("userID")
+		if userID == nil {
+			http.Error(w, `{"error":"User not authenticated"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// 2. Fetch user from database to check role
+		ctx := context.Background()
+		user, err := a.pg.GetUserByID(ctx, userID.(string))
+		if err != nil {
+			log.Printf("[auth] Failed to get user %s for admin check: %v", userID, err)
+			http.Error(w, `{"error":"User not found"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// 3. Check if user has admin role
+		if user.Role != "admin" {
+			log.Printf("[auth] Access denied: user %s (role=%s) attempted to access admin endpoint", user.Username, user.Role)
+			http.Error(w, `{"error":"Admin access required"}`, http.StatusForbidden)
+			return
+		}
+
+		// 4. User is admin, proceed
+		log.Printf("[auth] Admin access granted to user %s", user.Username)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // RateLimitMiddleware limits requests per user
 func (a *AuthMiddleware) RateLimitMiddleware(requests int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

@@ -190,3 +190,26 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		"message": "Logged out successfully",
 	})
 }
+
+func (h *AuthHandler) HandleGetMe(w http.ResponseWriter, r *http.Request) {
+	// Get userID from context (set by RequireAuth middleware)
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Get user from database
+	user, err := h.pgStore.GetUserByID(r.Context(), userID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"user_id":  user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+		"role":     user.Role,
+	})
+}

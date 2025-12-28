@@ -21,6 +21,7 @@ type User struct {
 	Username     string    `json:"username"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"password_hash"`
+	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -104,7 +105,7 @@ func (p *PostgresStore) CreateUser(ctx context.Context, username, email, passwor
 	query := `
 		INSERT INTO users (username, email, password_hash)
 		VALUES ($1, $2, $3)
-		RETURNING id, username, email, password_hash, created_at, updated_at
+		RETURNING id, username, email, password_hash, role, created_at, updated_at
 	`
 
 	var user User
@@ -113,6 +114,7 @@ func (p *PostgresStore) CreateUser(ctx context.Context, username, email, passwor
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -127,7 +129,7 @@ func (p *PostgresStore) CreateUser(ctx context.Context, username, email, passwor
 // GetUserByUsername retrieves a user by username
 func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	query := `
-		SELECT id, username, email, password_hash, created_at, updated_at
+		SELECT id, username, email, password_hash, role, created_at, updated_at
 		FROM users
 		WHERE username = $1
 	`
@@ -138,6 +140,7 @@ func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -155,7 +158,7 @@ func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 // GetUserByID retrieves a user by ID
 func (p *PostgresStore) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	query := `
-		SELECT id, username, email, password_hash, created_at, updated_at
+		SELECT id, username, email, password_hash, role, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -166,6 +169,7 @@ func (p *PostgresStore) GetUserByID(ctx context.Context, userID string) (*User, 
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

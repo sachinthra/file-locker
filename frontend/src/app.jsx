@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
+import Admin from './pages/Admin';
 import { getToken } from './utils/auth';
 import { initTheme } from './utils/theme';
 
@@ -61,6 +62,10 @@ export function App() {
             path="/settings" 
             isAuthenticated={isAuthenticated}
             addNotification={addNotification}
+          />
+          <Admin 
+            path="/admin" 
+            isAuthenticated={isAuthenticated}
           />
         </Router>
       </main>

@@ -142,6 +142,15 @@ export default function Header({ isAuthenticated, setIsAuthenticated, notificati
                       <span style="flex: 1">Settings</span>
                       <span class="menu-shortcut"><kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>S</kbd></span>
                     </a>
+                    {user?.role === 'admin' && (
+                      <a href="/admin" class="user-menu-item" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color: var(--primary-color);">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
+                        <span style="flex: 1; color: var(--primary-color); font-weight: 600;">Admin Panel</span>
+                        <span style="background: var(--primary-color); color: white; padding: 0.125rem 0.5rem; border-radius: var(--radius-xl); font-size: 0.7rem; font-weight: 600;">ADMIN</span>
+                      </a>
+                    )}
                     <div class="user-menu-divider"></div>
                     <button onClick={handleLogout} class="user-menu-item">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">

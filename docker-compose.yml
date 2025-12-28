@@ -24,11 +24,14 @@ services:
       - FILELOCKER_STORAGE_MINIO_ENDPOINT=minio:9000
       - FILELOCKER_STORAGE_REDIS_ADDR=redis:6379
 
-      # Pass secrets via env (mapped from .env or shell)
-      - FILELOCKER_STORAGE_DATABASE_PASSWORD=${DB_PASSWORD:-filelocker_password}
-      - FILELOCKER_STORAGE_MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - FILELOCKER_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
-      - FILELOCKER_SECURITY_JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      # Pass all config from .env (generated from config.yaml)
+      - FILELOCKER_STORAGE_DATABASE_USER=${DB_USER}
+      - FILELOCKER_STORAGE_DATABASE_PASSWORD=${DB_PASSWORD}
+      - FILELOCKER_STORAGE_DATABASE_DBNAME=${DB_NAME}
+      - FILELOCKER_STORAGE_MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - FILELOCKER_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - FILELOCKER_STORAGE_MINIO_BUCKET=${MINIO_BUCKET}
+      - FILELOCKER_SECURITY_JWT_SECRET=${JWT_SECRET}
     depends_on:
       - postgres
       - minio
@@ -45,18 +48,18 @@ services:
     image: postgres:15-alpine
     container_name: filelocker-postgres
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT}:5432"
     environment:
-      - POSTGRES_USER=${DB_USER:-filelocker}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-filelocker_password}
-      - POSTGRES_DB=${DB_NAME:-filelocker_db}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./backend/init-db:/docker-entrypoint-initdb.d
     networks:
       - filelocker-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-filelocker}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -69,11 +72,11 @@ services:
     container_name: filelocker-minio
     ports:
       # Map Host Port (from config.yaml) -> Internal Port 9000
-      - "${MINIO_PORT_API}:9000"      
+      - "${MINIO_PORT_API}:9000"
       - "${MINIO_PORT_CONSOLE}:9001"
     environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data

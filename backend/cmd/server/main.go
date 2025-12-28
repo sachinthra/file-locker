@@ -97,6 +97,7 @@ func main() {
 	streamHandler := api.NewStreamHandler(minioStorage, redisCache, pgStore)
 	filesHandler := api.NewFilesHandler(redisCache, minioStorage, pgStore)
 	exportHandler := api.NewExportHandler(minioStorage, pgStore)
+	adminHandler := api.NewAdminHandler(pgStore, minioStorage)
 
 	log.Println("✓ API handlers initialized")
 
@@ -176,11 +177,25 @@ func main() {
 
 			// Auth operations
 			r.Post("/auth/logout", authHandler.HandleLogout)
+			r.Get("/auth/me", authHandler.HandleGetMe)
 
 			// Personal Access Tokens (PATs)
 			r.Post("/auth/tokens", tokensHandler.HandleCreateToken)
 			r.Get("/auth/tokens", tokensHandler.HandleListTokens)
 			r.Delete("/auth/tokens/{id}", tokensHandler.HandleRevokeToken)
+		})
+
+		// Admin routes (authentication + admin role required)
+		r.Group(func(r chi.Router) {
+			// Apply auth middleware
+			r.Use(authMiddleware.RequireAuth)
+			// Apply admin-only middleware
+			r.Use(authMiddleware.RequireAdmin)
+
+			// Admin operations
+			r.Get("/admin/stats", adminHandler.HandleGetStats)
+			r.Get("/admin/users", adminHandler.HandleGetUsers)
+			r.Delete("/admin/users/{id}", adminHandler.HandleDeleteUser)
 		})
 	})
 

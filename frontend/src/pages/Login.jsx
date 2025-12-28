@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { route } from 'preact-router';
-import { login } from '../utils/api';
+import { login, getMe } from '../utils/api';
 import { saveToken, saveUser, getToken } from '../utils/auth';
 
 export default function Login({ setIsAuthenticated }) {
@@ -23,10 +23,14 @@ export default function Login({ setIsAuthenticated }) {
 
     try {
       const response = await login(username, password);
-      const { token, user_id, email } = response.data;
+      const { token } = response.data;
       
       saveToken(token);
-      saveUser({ user_id, email, username });
+      
+      // Fetch user info including role
+      const userResponse = await getMe();
+      saveUser(userResponse.data);
+      
       setIsAuthenticated(true);
       route('/dashboard');
     } catch (err) {
