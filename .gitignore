@@ -12,3 +12,8 @@ build/
 */vendor/*
 */test/*
 .env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/

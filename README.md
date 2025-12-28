@@ -49,21 +49,60 @@ This command syncs your config, builds images, and starts the stack.
 
 ```bash
 make docker-up
-
 ```
 
 Access the services:
 
-* **Web UI:** [http://localhost:9010](https://www.google.com/search?q=http://localhost:9010)
-* **MinIO Console:** [http://localhost:9013](https://www.google.com/search?q=http://localhost:9013) (User/Pass: `minioadmin`)
-* **API Health:** [http://localhost:9010/health](https://www.google.com/search?q=http://localhost:9010/health)
+* **Backend API:** [http://localhost:9010](http://localhost:9010)
+* **MinIO Console:** [http://localhost:9013](http://localhost:9013) (User/Pass: `minioadmin`)
+* **API Health:** [http://localhost:9010/health](http://localhost:9010/health)
 
-### 3. Stop Services
+### 3. Start Frontend (Development)
+
+In a separate terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be available at [http://localhost:5173](http://localhost:5173)
+
+### 4. Stop Services
 
 ```bash
 make docker-down
-
 ```
+
+---
+
+## 🌐 Frontend
+
+The File Locker includes a modern web interface built with **Preact** and **Vite**.
+
+### Features
+
+- 🎨 Clean, responsive UI
+- 📤 Drag-and-drop file upload with progress tracking
+- 🔍 File search by name or tags
+- 🏷️ Tag-based file organization
+- ⏰ Optional file expiration
+- 📥 One-click downloads
+- 🎥 In-browser video streaming
+- 🔐 JWT-based authentication
+
+### Development
+
+```bash
+cd frontend
+npm install      # Install dependencies
+npm run dev      # Start dev server with hot reload
+npm run build    # Build for production
+npm run preview  # Preview production build
+```
+
+See [frontend/README.md](frontend/README.md) for detailed frontend documentation.
 
 ---
 
