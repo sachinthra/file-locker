@@ -26,22 +26,28 @@ func NewAuthMiddleware(jwtService *JWTService, redisCache *storage.RedisCache) *
 // RequireAuth is standard Chi middleware
 func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. Get Authorization header
+		var tokenString string
+
+		// 1. Try to get token from Authorization header first
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			// Check format: "Bearer <token>"
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
+		}
+
+		// 2. If not in header, try query parameter (for download/stream links)
+		if tokenString == "" {
+			tokenString = r.URL.Query().Get("token")
+		}
+
+		// 3. If still no token, return error
+		if tokenString == "" {
 			http.Error(w, `{"error":"Authorization header required"}`, http.StatusUnauthorized)
 			return
 		}
-
-		// 2. Check format: "Bearer <token>"
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, `{"error":"Invalid authorization format"}`, http.StatusUnauthorized)
-			return
-		}
-
-		// 3. Extract token
-		tokenString := parts[1]
 
 		// 4. Validate token with jwtService
 		claims, err := a.jwtService.ValidateToken(tokenString)

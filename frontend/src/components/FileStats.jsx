@@ -20,7 +20,7 @@ export default function FileStats({ files }) {
 
   return (
     <div class="stats-container">
-      <h3>Overview</h3>
+      {/* <h3>Overview</h3> */}
       
       <div class="stat-card">
         <div class="stat-icon">
