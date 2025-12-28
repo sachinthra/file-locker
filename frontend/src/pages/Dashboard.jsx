@@ -166,33 +166,8 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
       {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
       <div class="dashboard-header">
-        <div>
-          <h1>Welcome, {user?.username}!</h1>
-          <p>Manage your encrypted files securely</p>
-        </div>
-        <div>
-          <button 
-            onClick={handleExportAll} 
-            class="btn btn-primary"
-            disabled={exporting || allFiles.length === 0}
-            title="Export all files as ZIP"
-          >
-            {exporting ? (
-              <>
-                <span>Exporting... {exportProgress}%</span>
-              </>
-            ) : (
-              <>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                Export All ({allFiles.length})
-              </>
-            )}
-          </button>
-        </div>
+        <h1>Welcome, {user?.username}!</h1>
+        <p>Manage your encrypted files securely</p>
       </div>
 
       {error && <div class="alert alert-error">{error}</div>}
@@ -211,6 +186,29 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated }) {
         {/* Column 3: File List & Search */}
         <div class="dashboard-col files-col">
           <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h2 style="margin: 0;">Your Files ({allFiles.length})</h2>
+              <button 
+                onClick={handleExportAll} 
+                class="btn btn-primary"
+                style="padding: 0.5rem 1rem; display: flex; align-items: center; white-space: nowrap;"
+                disabled={exporting || allFiles.length === 0}
+                title="Export all files as ZIP"
+              >
+                {exporting ? (
+                  <span>Exporting... {exportProgress}%</span>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Export All
+                  </>
+                )}
+              </button>
+            </div>
             <form onSubmit={handleSearch} class="search-form">
               <input
                 type="text"

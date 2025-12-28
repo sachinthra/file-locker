@@ -197,11 +197,8 @@ export default function FileList({ files, onDelete, onUpdate }) {
         </div>
       )}
       
-    <div class="card" style="margin-top: 2rem">
-      <h3>Your Files ({files.length})</h3>
-      
       {downloadingFile && (
-        <div class="progress-bar">
+        <div class="progress-bar" style="margin-bottom: 1rem;">
           <div class="progress-bar-fill" style={`width: ${downloadProgress}%`}></div>
           <span class="progress-bar-text">Downloading... {downloadProgress}%</span>
         </div>
@@ -305,7 +302,6 @@ export default function FileList({ files, onDelete, onUpdate }) {
           </div>
         ))}
       </div>
-    </div>
     </>
   );
 }
