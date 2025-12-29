@@ -70,7 +70,6 @@ services:
       - POSTGRES_DB=${DB_NAME}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./backend/init-db:/docker-entrypoint-initdb.d
     networks:
       - filelocker-network
     healthcheck:
@@ -132,14 +131,7 @@ services:
     ports:
       - "80:80"  # Main entry point for web access
     depends_on:
-      filelocker:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - filelocker
     networks:
       - filelocker-network
     restart: unless-stopped
