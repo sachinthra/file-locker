@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -9,7 +9,6 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates wget
 WORKDIR /app
 COPY --from=builder /app/filelocker .
-COPY --from=builder /app/configs ./configs
 ARG SERVER_PORT=9010
 ARG GRPC_PORT=9011
 EXPOSE ${SERVER_PORT} ${GRPC_PORT}

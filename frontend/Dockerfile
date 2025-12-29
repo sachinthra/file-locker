@@ -15,8 +15,8 @@ WORKDIR /app
 # Copy package files for dependency installation
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Install all dependencies (including dev dependencies needed for build)
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code
@@ -39,22 +39,12 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create a non-root user for nginx (security)
-RUN addgroup -g 101 -S nginx-runner && \
-    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx-runner -g nginx-runner nginx-runner && \
-    chown -R nginx-runner:nginx-runner /usr/share/nginx/html && \
-    chown -R nginx-runner:nginx-runner /var/cache/nginx && \
-    chmod -R 755 /usr/share/nginx/html
-
 # Expose port 80
 EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
-
-# Use non-root user
-USER nginx-runner
+    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
 
 # Start nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]

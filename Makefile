@@ -48,7 +48,7 @@ install-tools: ## Install dev tools (golangci-lint, protoc plugins)
 # -----------------------------------------------------------------
 dev: sync ## Full Docker Stack (Everything containerized)
 	@echo "$(BLUE)Starting Full Docker Environment...$(NC)"
-	docker compose up -d --build
+	DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up -d --build
 	@echo "$(GREEN)Backend running at http://localhost:9010$(NC)"
 	@echo "$(GREEN)Frontend running at http://localhost:80$(NC)"
 
