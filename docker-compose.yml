@@ -32,6 +32,8 @@ services:
       - FILELOCKER_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - FILELOCKER_STORAGE_MINIO_BUCKET=${MINIO_BUCKET}
       - FILELOCKER_SECURITY_JWT_SECRET=${JWT_SECRET}
+      # Override log path for Docker environment
+      - FILELOCKER_LOGGING_PATH=/var/log/filelocker/server.log
     depends_on:
       - postgres
       - minio
@@ -40,6 +42,7 @@ services:
       - filelocker-network
     volumes:
       - ./configs/config.yaml:/app/configs/config.yaml:ro
+      - filelocker-logs:/var/log/filelocker
 
   # ----------------------------------------------------------------
   # POSTGRESQL DATABASE
@@ -59,7 +62,7 @@ services:
     networks:
       - filelocker-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -135,4 +138,6 @@ volumes:
   minio-data:
     driver: local
   redis-data:
+    driver: local
+  filelocker-logs:
     driver: local

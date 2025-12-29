@@ -13,6 +13,7 @@ build/
 */test/*
 .env
 tmp/
+logs/
 
 # Frontend
 frontend/node_modules/

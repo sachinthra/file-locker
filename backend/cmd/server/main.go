@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/sachinthra/file-locker/backend/internal/auth"
 	"github.com/sachinthra/file-locker/backend/internal/config"
 	grpcService "github.com/sachinthra/file-locker/backend/internal/grpc"
+	"github.com/sachinthra/file-locker/backend/internal/logger"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"github.com/sachinthra/file-locker/backend/internal/worker"
 	pb "github.com/sachinthra/file-locker/backend/pkg/proto"
@@ -26,18 +28,26 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// Load configuration (with strict validation)
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Fatalf("❌ Failed to load configuration: %v", err)
 	}
 
-	log.Printf("Starting File Locker Backend...")
-	log.Printf("HTTP Server will run on port %d", cfg.Server.Port)
-	log.Printf("gRPC Server will run on port %d", cfg.Server.GRPCPort)
+	// Initialize structured logger
+	appLogger, err := logger.New(cfg.Logging)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize logger: %v", err)
+	}
+
+	appLogger.Info("Starting File Locker Backend",
+		slog.Int("http_port", cfg.Server.Port),
+		slog.Int("grpc_port", cfg.Server.GRPCPort),
+		slog.String("log_level", cfg.Logging.Level),
+	)
 
 	// Initialize storage services
-	log.Println("Initializing storage services...")
+	appLogger.Info("Initializing storage services")
 
 	// Initialize PostgreSQL
 	pgStore, err := storage.NewPostgresStore(
@@ -48,9 +58,13 @@ func main() {
 		cfg.Storage.Database.DBName,
 	)
 	if err != nil {
+		appLogger.Error("Failed to initialize PostgreSQL", slog.String("error", err.Error()))
 		log.Fatalf("Failed to initialize PostgreSQL: %v", err)
 	}
-	log.Println("✓ PostgreSQL connected successfully")
+	appLogger.Info("PostgreSQL connected successfully",
+		slog.String("host", cfg.Storage.Database.Host),
+		slog.String("database", cfg.Storage.Database.DBName),
+	)
 	defer pgStore.Close()
 
 	// Initialize MinIO
@@ -63,9 +77,13 @@ func main() {
 		cfg.Storage.MinIO.Region,
 	)
 	if err != nil {
+		appLogger.Error("Failed to initialize MinIO", slog.String("error", err.Error()))
 		log.Fatalf("Failed to initialize MinIO: %v", err)
 	}
-	log.Println("✓ MinIO connected successfully")
+	appLogger.Info("MinIO connected successfully",
+		slog.String("endpoint", cfg.Storage.MinIO.Endpoint),
+		slog.String("bucket", cfg.Storage.MinIO.Bucket),
+	)
 
 	// Initialize Redis
 	redisCache, err := storage.NewRedisCache(
@@ -74,16 +92,17 @@ func main() {
 		cfg.Storage.Redis.DB,
 	)
 	if err != nil {
+		appLogger.Error("Failed to initialize Redis", slog.String("error", err.Error()))
 		log.Fatalf("Failed to initialize Redis: %v", err)
 	}
-	log.Println("✓ Redis connected successfully")
+	appLogger.Info("Redis connected successfully", slog.String("addr", cfg.Storage.Redis.Addr))
 
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(
 		cfg.Security.JWTSecret,
 		cfg.Security.SessionTimeout,
 	)
-	log.Println("✓ JWT service initialized")
+	appLogger.Info("JWT service initialized")
 
 	// Initialize auth middleware
 	authMiddleware := auth.NewAuthMiddleware(jwtService, redisCache, pgStore)
@@ -99,7 +118,7 @@ func main() {
 	exportHandler := api.NewExportHandler(minioStorage, pgStore)
 	adminHandler := api.NewAdminHandler(pgStore, minioStorage)
 
-	log.Println("✓ API handlers initialized")
+	appLogger.Info("API handlers initialized")
 
 	// Setup HTTP Router
 	r := chi.NewRouter()
@@ -139,7 +158,7 @@ func main() {
 		httpSwagger.URL("http://localhost:9010/docs/openapi.yaml"), // pointing to your YAML
 	))
 
-	log.Println("✓ Swagger documentation endpoint configured at /swagger/index.html")
+	appLogger.Info("Swagger documentation configured", slog.String("endpoint", "/swagger/index.html"))
 
 	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
@@ -199,13 +218,13 @@ func main() {
 		})
 	})
 
-	log.Println("✓ HTTP routes configured")
+	appLogger.Info("HTTP routes configured")
 
 	// Initialize gRPC server
 	grpcServer := grpc.NewServer()
 	fileServiceServer := grpcService.NewFileServiceServer(pgStore)
 	pb.RegisterFileServiceServer(grpcServer, fileServiceServer)
-	log.Println("✓ gRPC server initialized")
+	appLogger.Info("gRPC server initialized")
 
 	// Start cleanup worker if enabled
 	ctx, cancel := context.WithCancel(context.Background())
@@ -215,7 +234,7 @@ func main() {
 		cleanupInterval := time.Duration(cfg.Features.AutoDelete.CheckInterval) * time.Minute
 		cleanupWorker := worker.NewCleanupWorker(minioStorage, pgStore, cleanupInterval)
 		go cleanupWorker.Start(ctx)
-		log.Printf("✓ Cleanup worker started (interval: %v)", cleanupInterval)
+		appLogger.Info("Cleanup worker started", slog.Duration("interval", cleanupInterval))
 	}
 
 	// Start gRPC server in a goroutine
@@ -225,8 +244,9 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("🚀 gRPC server listening on :%d", cfg.Server.GRPCPort)
+		appLogger.Info("🚀 gRPC server listening", slog.Int("port", cfg.Server.GRPCPort))
 		if err := grpcServer.Serve(grpcListener); err != nil {
+			appLogger.Error("gRPC server failed", slog.String("error", err.Error()))
 			log.Fatalf("gRPC server failed: %v", err)
 		}
 	}()
@@ -242,11 +262,10 @@ func main() {
 
 	// Start HTTP server in a goroutine
 	go func() {
-		log.Printf("🚀 HTTP server listening on :%d", cfg.Server.Port)
-		log.Println("=====================================")
-		log.Println("File Locker Backend is ready!")
-		log.Println("=====================================")
+		appLogger.Info("🚀 HTTP server listening", slog.Int("port", cfg.Server.Port))
+		appLogger.Info("File Locker Backend is ready!")
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			appLogger.Error("HTTP server failed", slog.String("error", err.Error()))
 			log.Fatalf("HTTP server failed: %v", err)
 		}
 	}()
@@ -256,7 +275,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down servers...")
+	appLogger.Info("Shutting down servers...")
 
 	// Cancel background workers
 	cancel()
@@ -266,11 +285,11 @@ func main() {
 	defer shutdownCancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP server forced to shutdown: %v", err)
+		appLogger.Error("HTTP server forced to shutdown", slog.String("error", err.Error()))
 	}
 
 	// Gracefully stop gRPC server
 	grpcServer.GracefulStop()
 
-	log.Println("Servers stopped gracefully")
+	appLogger.Info("Servers stopped gracefully")
 }

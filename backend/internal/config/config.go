@@ -6,31 +6,32 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Security SecurityConfig `mapstructure:"security"`
-	Storage  StorageConfig  `mapstructure:"storage"`
-	Features FeaturesConfig `mapstructure:"features"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
+	Server   ServerConfig   `mapstructure:"server" validate:"required"`
+	Security SecurityConfig `mapstructure:"security" validate:"required"`
+	Storage  StorageConfig  `mapstructure:"storage" validate:"required"`
+	Features FeaturesConfig `mapstructure:"features" validate:"required"`
+	Logging  LoggingConfig  `mapstructure:"logging" validate:"required"`
 }
 
 type ServerConfig struct {
-	Port           int           `mapstructure:"port"`
-	GRPCPort       int           `mapstructure:"grpc_port"`
-	Host           string        `mapstructure:"host"`
-	ReadTimeout    time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout   time.Duration `mapstructure:"write_timeout"`
-	MaxHeaderBytes int           `mapstructure:"max_header_bytes"`
+	Port           int           `mapstructure:"port" validate:"required,min=1,max=65535"`
+	GRPCPort       int           `mapstructure:"grpc_port" validate:"required,min=1,max=65535"`
+	Host           string        `mapstructure:"host" validate:"required"`
+	ReadTimeout    time.Duration `mapstructure:"read_timeout" validate:"required"`
+	WriteTimeout   time.Duration `mapstructure:"write_timeout" validate:"required"`
+	MaxHeaderBytes int           `mapstructure:"max_header_bytes" validate:"required,min=1"`
 }
 
 type SecurityConfig struct {
-	JWTSecret      string          `mapstructure:"jwt_secret"`
-	SessionTimeout int             `mapstructure:"session_timeout"`
-	TLS            TLSConfig       `mapstructure:"tls"`
-	RateLimit      RateLimitConfig `mapstructure:"rate_limiting"`
+	JWTSecret      string          `mapstructure:"jwt_secret" validate:"required,min=16"`
+	SessionTimeout int             `mapstructure:"session_timeout" validate:"required,min=60"`
+	TLS            TLSConfig       `mapstructure:"tls" validate:"required"`
+	RateLimit      RateLimitConfig `mapstructure:"rate_limiting" validate:"required"`
 }
 
 type TLSConfig struct {
@@ -41,72 +42,73 @@ type TLSConfig struct {
 
 type RateLimitConfig struct {
 	Enabled           bool `mapstructure:"enabled"`
-	RequestsPerMinute int  `mapstructure:"requests_per_minute"`
-	Burst             int  `mapstructure:"burst"`
+	RequestsPerMinute int  `mapstructure:"requests_per_minute" validate:"min=0"`
+	Burst             int  `mapstructure:"burst" validate:"min=0"`
 }
 
 type StorageConfig struct {
-	Database DatabaseConfig `mapstructure:"database"`
-	MinIO    MinIOConfig    `mapstructure:"minio"`
-	Redis    RedisConfig    `mapstructure:"redis"`
+	Database DatabaseConfig `mapstructure:"database" validate:"required"`
+	MinIO    MinIOConfig    `mapstructure:"minio" validate:"required"`
+	Redis    RedisConfig    `mapstructure:"redis" validate:"required"`
 }
 
 type DatabaseConfig struct {
-	Host            string `mapstructure:"host"`
-	Port            int    `mapstructure:"port"`
-	User            string `mapstructure:"user"`
-	Password        string `mapstructure:"password"`
-	DBName          string `mapstructure:"dbname"`
-	SSLMode         string `mapstructure:"sslmode"`
-	MaxOpenConns    int    `mapstructure:"max_open_conns"`
-	MaxIdleConns    int    `mapstructure:"max_idle_conns"`
-	ConnMaxLifetime int    `mapstructure:"conn_max_lifetime"`
+	Host            string `mapstructure:"host" validate:"required"`
+	Port            int    `mapstructure:"port" validate:"required,min=1,max=65535"`
+	User            string `mapstructure:"user" validate:"required"`
+	Password        string `mapstructure:"password" validate:"required"`
+	DBName          string `mapstructure:"dbname" validate:"required"`
+	SSLMode         string `mapstructure:"sslmode" validate:"required,oneof=disable require verify-ca verify-full"`
+	MaxOpenConns    int    `mapstructure:"max_open_conns" validate:"required,min=1"`
+	MaxIdleConns    int    `mapstructure:"max_idle_conns" validate:"required,min=1"`
+	ConnMaxLifetime int    `mapstructure:"conn_max_lifetime" validate:"required,min=1"`
 }
 
 type MinIOConfig struct {
-	Endpoint    string `mapstructure:"endpoint"`
-	PortAPI     int    `mapstructure:"port_api"`     // For Docker Port Mapping
-	PortConsole int    `mapstructure:"port_console"` // For Docker Port Mapping
-	AccessKey   string `mapstructure:"access_key"`
-	SecretKey   string `mapstructure:"secret_key"`
-	Bucket      string `mapstructure:"bucket"`
+	Endpoint    string `mapstructure:"endpoint" validate:"required"`
+	PortAPI     int    `mapstructure:"port_api" validate:"required,min=1,max=65535"`     // For Docker Port Mapping
+	PortConsole int    `mapstructure:"port_console" validate:"required,min=1,max=65535"` // For Docker Port Mapping
+	AccessKey   string `mapstructure:"access_key" validate:"required"`
+	SecretKey   string `mapstructure:"secret_key" validate:"required"`
+	Bucket      string `mapstructure:"bucket" validate:"required"`
 	UseSSL      bool   `mapstructure:"use_ssl"`
-	Region      string `mapstructure:"region"`
+	Region      string `mapstructure:"region" validate:"required"`
 }
 
 type RedisConfig struct {
-	Addr     string `mapstructure:"addr"`
-	Port     int    `mapstructure:"port"` // For Docker Port Mapping
+	Addr     string `mapstructure:"addr" validate:"required"`
+	Port     int    `mapstructure:"port" validate:"required,min=1,max=65535"` // For Docker Port Mapping
 	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
+	DB       int    `mapstructure:"db" validate:"min=0"`
 }
 
 type FeaturesConfig struct {
-	AutoDelete     AutoDeleteConfig     `mapstructure:"auto_delete"`
-	VideoStreaming VideoStreamingConfig `mapstructure:"video_streaming"`
-	BatchUploads   BatchUploadsConfig   `mapstructure:"batch_uploads"`
+	AutoDelete     AutoDeleteConfig     `mapstructure:"auto_delete" validate:"required"`
+	VideoStreaming VideoStreamingConfig `mapstructure:"video_streaming" validate:"required"`
+	BatchUploads   BatchUploadsConfig   `mapstructure:"batch_uploads" validate:"required"`
 }
 
 type AutoDeleteConfig struct {
 	Enabled       bool `mapstructure:"enabled"`
-	CheckInterval int  `mapstructure:"check_interval"`
+	CheckInterval int  `mapstructure:"check_interval" validate:"min=1"`
 }
 
 type VideoStreamingConfig struct {
 	Enabled   bool `mapstructure:"enabled"`
-	ChunkSize int  `mapstructure:"chunk_size"`
+	ChunkSize int  `mapstructure:"chunk_size" validate:"min=1"`
 }
 
 type BatchUploadsConfig struct {
 	Enabled       bool `mapstructure:"enabled"`
-	MaxConcurrent int  `mapstructure:"max_concurrent"`
+	MaxConcurrent int  `mapstructure:"max_concurrent" validate:"min=1"`
 }
 
 type LoggingConfig struct {
-	Level    string `mapstructure:"level"`
-	Format   string `mapstructure:"format"`
-	Output   string `mapstructure:"output"`
-	FilePath string `mapstructure:"file_path"`
+	Level      string `mapstructure:"level" validate:"required,oneof=debug info warn error"`
+	Path       string `mapstructure:"path" validate:"required"`
+	MaxSizeMB  int    `mapstructure:"max_size_mb" validate:"min=1"`
+	MaxBackups int    `mapstructure:"max_backups" validate:"min=1"`
+	MaxAgeDays int    `mapstructure:"max_age_days" validate:"min=1"`
 }
 
 // LoadConfig loads configuration from file and environment
@@ -148,8 +150,28 @@ func LoadConfig() (*Config, error) {
 
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// 4. Strict Validation (Fail Fast)
+	validate := validator.New()
+	if err := validate.Struct(&config); err != nil {
+		// Format validation errors with detailed messages
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			var errMessages []string
+			for _, fieldErr := range validationErrors {
+				errMessages = append(errMessages, fmt.Sprintf(
+					"❌ Field '%s' failed validation: %s (value: '%v')",
+					fieldErr.Namespace(),
+					fieldErr.Tag(),
+					fieldErr.Value(),
+				))
+			}
+			return nil, fmt.Errorf("configuration validation failed:\n%s", strings.Join(errMessages, "\n"))
+		}
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	fmt.Println("✅ Configuration validation passed")
 	return &config, nil
 }

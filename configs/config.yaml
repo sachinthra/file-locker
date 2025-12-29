@@ -70,9 +70,10 @@ features:
 
 logging:
   level: "info"  # debug, info, warn, error
-  format: "json"  # json, text
-  output: "stdout"  # stdout, file
-  file_path: "/var/log/filelocker/server.log"
+  path: "./logs/server.log"  # Dev: ./logs | Prod: /var/log/filelocker/server.log
+  max_size_mb: 10
+  max_backups: 3
+  max_age_days: 28
 
 
 # encryption: # Not yet implemented
