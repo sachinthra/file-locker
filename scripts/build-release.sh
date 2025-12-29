@@ -25,6 +25,18 @@ CLI_TARGETS=(
 
 echo -e "${BLUE}🚀 Starting Release Build [v${VERSION}]${NC}"
 
+# Setup buildx builder (required for multi-platform)
+echo -e "${YELLOW}------------------------------------------------${NC}"
+echo -e "${BLUE}🔧 Setting up Docker buildx...${NC}"
+if ! docker buildx inspect filelocker-builder > /dev/null 2>&1; then
+    echo -e "   ${YELLOW}•${NC} Creating buildx builder instance..."
+    docker buildx create --name filelocker-builder --use
+    echo -e "${GREEN}✅ Builder created${NC}"
+else
+    echo -e "   ${YELLOW}•${NC} Using existing builder..."
+    docker buildx use filelocker-builder
+fi
+
 # 1. Build & Push Docker Images (Server - Env 2)
 echo -e "${YELLOW}------------------------------------------------${NC}"
 echo -e "${BLUE}📦 Building Docker Images (${PLATFORMS})...${NC}"
