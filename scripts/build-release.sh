@@ -86,10 +86,13 @@ echo -e "${GREEN}✅ CLI Binaries Built in ./bin/${NC}"
 echo -e "${YELLOW}------------------------------------------------${NC}"
 echo -e "${BLUE}📦 Packaging .deb Installer...${NC}"
 mkdir -p dist/deb/opt/filelocker
-# Copy the PROD compose file (renaming to standard name)
-cp install/docker-compose.yml dist/deb/opt/filelocker/docker-compose.yml
-# Copy files and replace DOCKER_USERNAME placeholder
+
+# Copy files and replace DOCKER_USERNAME and VERSION placeholders
 echo -e "   ${YELLOW}•${NC} Injecting Docker username: ${DOCKER_USERNAME}"
+echo -e "   ${YELLOW}•${NC} Injecting version: ${VERSION}"
+sed -e "s/\${DOCKER_USERNAME}/${DOCKER_USERNAME}/g" \
+    -e "s/:latest/:${VERSION}/g" \
+    install/docker-compose.yml > dist/deb/opt/filelocker/docker-compose.yml
 sed "s/DOCKER_USERNAME=_YOUR_DOCKER_USER_NAME/DOCKER_USERNAME=${DOCKER_USERNAME}/g" install/setup.sh > dist/deb/opt/filelocker/setup.sh
 chmod +x dist/deb/opt/filelocker/setup.sh
 cp configs/config.yaml dist/deb/opt/filelocker/

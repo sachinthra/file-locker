@@ -147,15 +147,12 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	// CORS middleware
+	// CORS middleware (frontend accessed through nginx on port 80)
 	r.Use(cors.Handler(cors.Options{
-		// AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010", "null"},
-		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9010"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-Requested-With"},
-		ExposedHeaders: []string{"Content-Length", "Content-Range"},
-		// AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With", "Range"},
-		// ExposedHeaders:   []string{"Content-Length", "Content-Range", "Accept-Ranges", "Content-Type"},
+		AllowedOrigins:   []string{"http://localhost", "http://localhost:80", "http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With", "X-Real-IP", "X-Forwarded-For"},
+		ExposedHeaders:   []string{"Content-Length", "Content-Range"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))

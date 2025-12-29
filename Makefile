@@ -8,8 +8,8 @@ RED := \033[0;31m
 NC := \033[0m
 
 # Config
-DOCKER_USER := yourusername
-VERSION := latest
+DOCKER_USER ?= yourusername
+VERSION ?= latest
 
 help: ## Show this help message
 	@printf "$(BLUE)File Locker - Project Commander$(NC)\n"
@@ -137,7 +137,11 @@ build: build-backend build-frontend ## Build both backend and frontend (No Docke
 build-release: ## Build All Artifacts (Docker Images + CLI Binaries + Deb)
 	@echo "$(BLUE)Building Release v$(VERSION)...$(NC)"
 	@chmod +x scripts/build-release.sh
-	@DOCKER_USERNAME=$(DOCKER_USER) VERSION=$(VERSION) ./scripts/build-release.sh
+	@if [ -n "$$DOCKER_USERNAME" ]; then \
+		DOCKER_USERNAME=$$DOCKER_USERNAME VERSION=$(VERSION) ./scripts/build-release.sh; \
+	else \
+		DOCKER_USERNAME=$(DOCKER_USER) VERSION=$(VERSION) ./scripts/build-release.sh; \
+	fi
 
 # -----------------------------------------------------------------
 # UTILITIES
