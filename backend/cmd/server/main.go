@@ -63,6 +63,18 @@ func main() {
 	}
 	appLogger.Info("✅ Database migrations completed successfully")
 
+	// Create default admin user
+	if err := db.CreateDefaultAdmin(
+		dbURL,
+		cfg.Security.DefaultAdmin.Username,
+		cfg.Security.DefaultAdmin.Email,
+		cfg.Security.DefaultAdmin.Password,
+		appLogger,
+	); err != nil {
+		appLogger.Error("Failed to create default admin", slog.String("error", err.Error()))
+		log.Fatalf("❌ Failed to create default admin: %v", err)
+	}
+
 	// Initialize storage services
 	appLogger.Info("Initializing storage services")
 

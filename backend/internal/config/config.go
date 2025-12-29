@@ -30,8 +30,15 @@ type ServerConfig struct {
 type SecurityConfig struct {
 	JWTSecret      string          `mapstructure:"jwt_secret" validate:"required,min=16"`
 	SessionTimeout int             `mapstructure:"session_timeout" validate:"required,min=60"`
+	DefaultAdmin   DefaultAdmin    `mapstructure:"default_admin" validate:"required"`
 	TLS            TLSConfig       `mapstructure:"tls" validate:"required"`
 	RateLimit      RateLimitConfig `mapstructure:"rate_limiting" validate:"required"`
+}
+
+type DefaultAdmin struct {
+	Username string `mapstructure:"username" validate:"required,min=3"`
+	Email    string `mapstructure:"email" validate:"required,email"`
+	Password string `mapstructure:"password" validate:"required,min=8"`
 }
 
 type TLSConfig struct {

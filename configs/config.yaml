@@ -48,6 +48,12 @@ storage:
 security:
   jwt_secret: "change-me-in-production"
   session_timeout: 3600  # seconds
+  
+  # Default admin user (created if doesn't exist)
+  default_admin:
+    username: "admin"
+    email: "admin@filelocker.local"
+    password: "password123"  # ⚠️ CHANGE THIS IMMEDIATELY AFTER FIRST LOGIN!
   tls:
     enabled: false
     cert_file: ""
