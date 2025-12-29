@@ -9,7 +9,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
-DOCKER_USERNAME="${DOCKER_USERNAME:-youruser}"
+DOCKER_USERNAME="${DOCKER_USERNAME:-yourusername}"
 VERSION="${VERSION:-latest}"
 PLATFORMS="linux/amd64,linux/arm64" # For Docker Images
 
@@ -22,6 +22,16 @@ CLI_TARGETS=(
     "linux/amd64"    # Linux Server (Env 2)
     "linux/arm64"    # Raspberry Pi (Env 2)
 )
+
+# Validate Docker Hub username
+if [ "$DOCKER_USERNAME" == "yourusername" ]; then
+    echo -e "${RED}❌ Error: DOCKER_USERNAME is not set!${NC}"
+    echo -e "${YELLOW}Please set it before running:${NC}"
+    echo -e "  export DOCKER_USERNAME=\"your-dockerhub-username\""
+    echo -e "  OR"
+    echo -e "  DOCKER_USER=\"your-dockerhub-username\" make build-release"
+    exit 1
+fi
 
 echo -e "${BLUE}🚀 Starting Release Build [v${VERSION}]${NC}"
 
@@ -78,7 +88,10 @@ echo -e "${BLUE}📦 Packaging .deb Installer...${NC}"
 mkdir -p dist/deb/opt/filelocker
 # Copy the PROD compose file (renaming to standard name)
 cp install/docker-compose.yml dist/deb/opt/filelocker/docker-compose.yml
-cp install/setup.sh dist/deb/opt/filelocker/
+# Copy files and replace DOCKER_USERNAME placeholder
+echo -e "   ${YELLOW}•${NC} Injecting Docker username: ${DOCKER_USERNAME}"
+sed "s/DOCKER_USERNAME=_YOUR_DOCKER_USER_NAME/DOCKER_USERNAME=${DOCKER_USERNAME}/g" install/setup.sh > dist/deb/opt/filelocker/setup.sh
+chmod +x dist/deb/opt/filelocker/setup.sh
 cp configs/config.yaml dist/deb/opt/filelocker/
 
 echo -e "${GREEN}✅ Debian Structure created in ./dist/deb/${NC}"

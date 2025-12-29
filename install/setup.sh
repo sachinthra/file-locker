@@ -81,19 +81,12 @@ fi
 log_info "Using command: ${DOCKER_CMD}"
 
 # ----------------------------------------------------------------
-# Get Docker Hub Username
+# Docker Hub Username (Pre-configured during build)
 # ----------------------------------------------------------------
 
-log_step "Docker Hub Configuration"
-echo ""
-read -p "Enter your Docker Hub username (e.g., 'myusername'): " DOCKER_USERNAME
+DOCKER_USERNAME=_YOUR_DOCKER_USER_NAME  # This gets replaced during build-release
 
-if [ -z "$DOCKER_USERNAME" ]; then
-    log_error "Docker Hub username cannot be empty!"
-    exit 1
-fi
-
-log_info "Will use images: ${DOCKER_USERNAME}/filelocker-backend:latest and ${DOCKER_USERNAME}/filelocker-frontend:latest"
+log_info "Using Docker images: ${DOCKER_USERNAME}/filelocker-*:latest"
 
 # ----------------------------------------------------------------
 # Port Selection
