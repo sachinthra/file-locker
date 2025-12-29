@@ -169,10 +169,13 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health check endpoint
+	// Health check endpoint (supports both GET and HEAD)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"healthy"}`))
+	})
+	r.Head("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 	})
 
 	// You also need to serve the static YAML file itself
