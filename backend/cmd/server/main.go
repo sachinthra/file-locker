@@ -18,6 +18,7 @@ import (
 	"github.com/sachinthra/file-locker/backend/internal/api"
 	"github.com/sachinthra/file-locker/backend/internal/auth"
 	"github.com/sachinthra/file-locker/backend/internal/config"
+	"github.com/sachinthra/file-locker/backend/internal/db"
 	grpcService "github.com/sachinthra/file-locker/backend/internal/grpc"
 	"github.com/sachinthra/file-locker/backend/internal/logger"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
@@ -45,6 +46,22 @@ func main() {
 		slog.Int("grpc_port", cfg.Server.GRPCPort),
 		slog.String("log_level", cfg.Logging.Level),
 	)
+
+	// Run database migrations
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		cfg.Storage.Database.User,
+		cfg.Storage.Database.Password,
+		cfg.Storage.Database.Host,
+		cfg.Storage.Database.Port,
+		cfg.Storage.Database.DBName,
+	)
+
+	appLogger.Info("Running database migrations")
+	if err := db.RunMigrations(dbURL, appLogger); err != nil {
+		appLogger.Error("Failed to run database migrations", slog.String("error", err.Error()))
+		log.Fatalf("❌ Database migration failed: %v\nPlease check your database configuration and try again.", err)
+	}
+	appLogger.Info("✅ Database migrations completed successfully")
 
 	// Initialize storage services
 	appLogger.Info("Initializing storage services")

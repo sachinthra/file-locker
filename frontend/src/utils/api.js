@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { getToken } from './auth';
 
-const API_BASE_URL = 'http://localhost:9010/api/v1';
+// Use relative URL - Nginx will proxy /api/* to backend
+const API_BASE_URL = '/api/v1';
+// const API_BASE_URL = 'http://localhost:9010/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

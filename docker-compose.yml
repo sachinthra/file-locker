@@ -13,6 +13,8 @@ services:
         - GRPC_PORT=${GRPC_PORT}
     container_name: filelocker-server
     ports:
+      # Exposed for CLI and direct API access during development
+      # For production: comment these out and use only Nginx
       - "${SERVER_PORT}:${SERVER_PORT}"  # HTTP/REST API
       - "${GRPC_PORT}:${GRPC_PORT}"  # gRPC API
     environment:
@@ -35,14 +37,24 @@ services:
       # Override log path for Docker environment
       - FILELOCKER_LOGGING_PATH=/var/log/filelocker/server.log
     depends_on:
-      - postgres
-      - minio
-      - redis
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - filelocker-network
     volumes:
       - ./configs/config.yaml:/app/configs/config.yaml:ro
       - filelocker-logs:/var/log/filelocker
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9010/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   # ----------------------------------------------------------------
   # POSTGRESQL DATABASE
@@ -74,7 +86,6 @@ services:
     image: minio/minio:latest
     container_name: filelocker-minio
     ports:
-      # Map Host Port (from config.yaml) -> Internal Port 9000
       - "${MINIO_PORT_API}:9000"
       - "${MINIO_PORT_CONSOLE}:9001"
     environment:
@@ -111,22 +122,27 @@ services:
       retries: 3
 
   # ----------------------------------------------------------------
-  # FRONTEND
+  # FRONTEND (Nginx Reverse Proxy + Static Serving)
   # ----------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: filelocker-frontend
-    environment:
-      - VITE_API_URL=http://localhost:${SERVER_PORT}
-      - VITE_GRPC_URL=http://localhost:${GRPC_PORT}
     ports:
-      - "3000:80"
+      - "80:80"  # Main entry point for web access
     depends_on:
-      - filelocker
+      filelocker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - filelocker-network
+    restart: unless-stopped
 
 networks:
   filelocker-network:

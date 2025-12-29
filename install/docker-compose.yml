@@ -1,0 +1,188 @@
+# ================================================================
+# Production Docker Compose - File Locker
+# For Raspberry Pi / ARM64 / x86_64 Server Deployment
+# ================================================================
+#
+# This file uses pre-built images from Docker Hub.
+# No source code is required on the deployment server.
+#
+# USAGE:
+#   1. Run install/setup.sh to generate .env file
+#   2. docker compose -f install/docker-compose.yml up -d
+#
+# ================================================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------
+  # FRONTEND (Nginx + Preact SPA + API Proxy)
+  # ----------------------------------------------------------------
+  frontend:
+    image: ${DOCKER_USERNAME}/filelocker-frontend:latest
+    container_name: filelocker-frontend
+    ports:
+      - "${WEB_PORT}:80"  # User-selected port from setup.sh
+    depends_on:
+      filelocker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - filelocker-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ----------------------------------------------------------------
+  # BACKEND (Go Application)
+  # ----------------------------------------------------------------
+  filelocker:
+    image: ${DOCKER_USERNAME}/filelocker-backend:latest
+    container_name: filelocker-server
+    # No ports exposed - only accessible via frontend Nginx proxy
+    expose:
+      - "9010"  # HTTP API (internal only)
+      - "9011"  # gRPC (internal only)
+    environment:
+      # Docker network overrides
+      - FILELOCKER_STORAGE_DATABASE_HOST=postgres
+      - FILELOCKER_STORAGE_MINIO_ENDPOINT=minio:9000
+      - FILELOCKER_STORAGE_REDIS_ADDR=redis:6379
+      
+      # Database credentials
+      - FILELOCKER_STORAGE_DATABASE_USER=${DB_USER}
+      - FILELOCKER_STORAGE_DATABASE_PASSWORD=${DB_PASSWORD}
+      - FILELOCKER_STORAGE_DATABASE_DBNAME=${DB_NAME}
+      
+      # MinIO credentials
+      - FILELOCKER_STORAGE_MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - FILELOCKER_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - FILELOCKER_STORAGE_MINIO_BUCKET=${MINIO_BUCKET}
+      
+      # Security
+      - FILELOCKER_SECURITY_JWT_SECRET=${JWT_SECRET}
+      
+      # Production logging
+      - FILELOCKER_LOGGING_PATH=/var/log/filelocker/server.log
+      - FILELOCKER_LOGGING_LEVEL=info
+    volumes:
+      - ./config.yaml:/app/configs/config.yaml:ro
+      - filelocker-logs:/var/log/filelocker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - filelocker-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9010/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ----------------------------------------------------------------
+  # POSTGRESQL DATABASE
+  # ----------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: filelocker-postgres
+    # No external port exposure for security
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - filelocker-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ----------------------------------------------------------------
+  # MINIO OBJECT STORAGE
+  # ----------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: filelocker-minio
+    # No external port exposure for security
+    expose:
+      - "9000"  # API
+      - "9001"  # Console
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - filelocker-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------------
+  # REDIS CACHE
+  # ----------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: filelocker-redis
+    # No external port exposure for security
+    expose:
+      - "6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - filelocker-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# ----------------------------------------------------------------
+# NETWORKS
+# ----------------------------------------------------------------
+networks:
+  filelocker-net:
+    driver: bridge
+
+# ----------------------------------------------------------------
+# VOLUMES (Data Persistence)
+# ----------------------------------------------------------------
+volumes:
+  postgres-data:
+    driver: local
+  minio-data:
+    driver: local
+  redis-data:
+    driver: local
+  filelocker-logs:
+    driver: local

@@ -6,7 +6,7 @@ COPY . .
 RUN go build -o filelocker cmd/server/main.go
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates wget
 WORKDIR /app
 COPY --from=builder /app/filelocker .
 COPY --from=builder /app/configs ./configs

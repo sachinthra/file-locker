@@ -26,7 +26,7 @@ const (
 )
 
 type CLIConfig struct {
-	BaseURL string `json:"base_url,omitempty"`
+	BaseURL string `json:"base_url"`
 	Token   string `json:"token"`
 }
 
@@ -42,27 +42,44 @@ func cfgPath() (string, error) {
 	return filepath.Join(dir, configFile), nil
 }
 
-func saveToken(token string) error {
+func saveConfig(cfg CLIConfig) error {
 	p, err := cfgPath()
 	if err != nil {
 		return err
 	}
-	cfg := CLIConfig{Token: token, BaseURL: apiBase}
-	b, _ := json.Marshal(cfg)
+	b, _ := json.MarshalIndent(cfg, "", "  ")
 	return os.WriteFile(p, b, 0600)
 }
 
-func loadToken() (string, error) {
+func loadConfig() (*CLIConfig, error) {
 	p, err := cfgPath()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	b, err := os.ReadFile(p)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var cfg CLIConfig
 	if err := json.Unmarshal(b, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func saveToken(token string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		// Create new config if doesn't exist
+		cfg = &CLIConfig{BaseURL: apiBase}
+	}
+	cfg.Token = token
+	return saveConfig(*cfg)
+}
+
+func loadToken() (string, error) {
+	cfg, err := loadConfig()
+	if err != nil {
 		return "", err
 	}
 	if cfg.Token == "" {
@@ -76,24 +93,34 @@ func httpClient(token string) *http.Client {
 	return client
 }
 
-func getBaseURL(cfg *CLIConfig) string {
-	if cfg != nil && cfg.BaseURL != "" {
+func normalizeBaseURL(host string) string {
+	// Remove trailing slash
+	host = strings.TrimSuffix(host, "/")
+
+	// If host doesn't end with /api or /api/v1, append /api/v1
+	if !strings.HasSuffix(host, "/api") && !strings.HasSuffix(host, "/api/v1") {
+		return host + "/api/v1"
+	}
+
+	// If ends with /api but not /api/v1, append /v1
+	if strings.HasSuffix(host, "/api") && !strings.HasSuffix(host, "/api/v1") {
+		return host + "/v1"
+	}
+
+	return host
+}
+
+func getBaseURL() string {
+	cfg, err := loadConfig()
+	if err == nil && cfg.BaseURL != "" {
 		return cfg.BaseURL
 	}
 	return apiBase
 }
 
 func doRequest(method, path, token string, body io.Reader, contentType string) (*http.Response, error) {
-	baseURL := apiBase
-	if p, err := cfgPath(); err == nil {
-		if b, err := os.ReadFile(p); err == nil {
-			var cfg CLIConfig
-			if json.Unmarshal(b, &cfg) == nil {
-				baseURL = getBaseURL(&cfg)
-			}
-		}
-	}
-	
+	baseURL := getBaseURL()
+
 	req, _ := http.NewRequest(method, baseURL+path, body)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -103,13 +130,13 @@ func doRequest(method, path, token string, body io.Reader, contentType string) (
 	}
 	client := httpClient(token)
 	resp, err := client.Do(req)
-	
+
 	// Handle 401 Unauthorized
 	if err == nil && resp.StatusCode == 401 {
 		fmt.Fprintln(os.Stderr, "Session expired or invalid token. Please run 'fl login'.")
 		os.Exit(1)
 	}
-	
+
 	return resp, err
 }
 
@@ -118,10 +145,29 @@ func cmdLogin(args []string) error {
 	tokenPtr := fs.String("token", "", "personal access token")
 	userPtr := fs.String("u", "", "username")
 	passPtr := fs.String("p", "", "password")
+	hostPtr := fs.String("host", "", "server URL (e.g., http://raspberrypi.local:8080)")
 	fs.Parse(args)
-	
+
+	// Load existing config or create new one
+	cfg, err := loadConfig()
+	if err != nil {
+		cfg = &CLIConfig{BaseURL: apiBase}
+	}
+
+	// Update base URL if --host is provided
+	if *hostPtr != "" {
+		cfg.BaseURL = normalizeBaseURL(*hostPtr)
+		fmt.Printf("Using server: %s\n", cfg.BaseURL)
+	}
+
 	// Token-based login (preferred)
 	if *tokenPtr != "" {
+		// Save config with new host before validating token
+		cfg.Token = *tokenPtr
+		if err := saveConfig(*cfg); err != nil {
+			return err
+		}
+
 		// Validate token by calling an auth-protected endpoint
 		resp, err := doRequest("GET", "/files", *tokenPtr, nil, "")
 		if err != nil {
@@ -131,13 +177,10 @@ func cmdLogin(args []string) error {
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("invalid token (status %d)", resp.StatusCode)
 		}
-		if err := saveToken(*tokenPtr); err != nil {
-			return err
-		}
-		fmt.Println("Successfully logged in with Personal Access Token!")
+		fmt.Println("✅ Successfully logged in with Personal Access Token!")
 		return nil
 	}
-	
+
 	// Username/Password login (legacy)
 	if *userPtr != "" && *passPtr != "" {
 		payload := map[string]string{
@@ -145,17 +188,17 @@ func cmdLogin(args []string) error {
 			"password": *passPtr,
 		}
 		body, _ := json.Marshal(payload)
-		
+
 		resp, err := doRequest("POST", "/auth/login", "", strings.NewReader(string(body)), "application/json")
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
-		
+
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("login failed (status %d)", resp.StatusCode)
 		}
-		
+
 		var result struct {
 			Token string `json:"token"`
 			User  struct {
@@ -165,14 +208,15 @@ func cmdLogin(args []string) error {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			return err
 		}
-		
-		if err := saveToken(result.Token); err != nil {
+
+		cfg.Token = result.Token
+		if err := saveConfig(*cfg); err != nil {
 			return err
 		}
-		fmt.Printf("Successfully logged in as %s!\n", result.User.Username)
+		fmt.Printf("✅ Successfully logged in as %s!\n", result.User.Username)
 		return nil
 	}
-	
+
 	return errors.New("either --token or both -u and -p are required")
 }
 
@@ -194,7 +238,7 @@ func cmdLs(jsonOut bool) error {
 		fmt.Println(string(body))
 		return nil
 	}
-	
+
 	var parsed struct {
 		Files []struct {
 			ID        string     `json:"file_id"`
@@ -204,30 +248,30 @@ func cmdLs(jsonOut bool) error {
 			ExpiresAt *time.Time `json:"expires_at"`
 		} `json:"files"`
 	}
-	
+
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return err
 	}
-	
+
 	if len(parsed.Files) == 0 {
 		fmt.Println("No files found.")
 		return nil
 	}
-	
+
 	// Use tabwriter for clean table formatting
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "ID\tNAME\tSIZE\tUPLOADED\tEXPIRES")
 	fmt.Fprintln(w, "---\t----\t----\t--------\t-------")
-	
+
 	for _, f := range parsed.Files {
 		id := f.ID
 		if len(id) > 8 {
 			id = id[:8] + "..."
 		}
-		
+
 		size := humanize.Bytes(uint64(f.Size))
 		uploaded := humanize.Time(f.CreatedAt)
-		
+
 		expires := "Never"
 		if f.ExpiresAt != nil {
 			if f.ExpiresAt.Before(time.Now()) {
@@ -236,11 +280,11 @@ func cmdLs(jsonOut bool) error {
 				expires = "In " + humanize.Time(*f.ExpiresAt)
 			}
 		}
-		
+
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, f.FileName, size, uploaded, expires)
 	}
 	w.Flush()
-	
+
 	return nil
 }
 
@@ -250,12 +294,12 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 		return err
 	}
 	defer file.Close()
-	
+
 	stat, err := file.Stat()
 	if err != nil {
 		return err
 	}
-	
+
 	// Create progress bar
 	bar := progressbar.NewOptions64(
 		stat.Size(),
@@ -272,32 +316,32 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 		progressbar.OptionFullWidth(),
 		progressbar.OptionSetRenderBlankState(true),
 	)
-	
+
 	// Create pipe for streaming upload
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
-	
+
 	// Error channel for goroutine
 	done := make(chan error, 1)
-	
+
 	// Write multipart form in goroutine
 	go func() {
 		defer pw.Close()
-		
+
 		// Add file part
 		part, err := writer.CreateFormFile("file", filepath.Base(path))
 		if err != nil {
 			done <- err
 			return
 		}
-		
+
 		// Copy file through progress bar
 		_, err = io.Copy(part, io.TeeReader(file, bar))
 		if err != nil {
 			done <- err
 			return
 		}
-		
+
 		// Add optional fields
 		if tags != "" {
 			writer.WriteField("tags", tags)
@@ -305,22 +349,14 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 		if expireHours > 0 {
 			writer.WriteField("expire_hours", fmt.Sprint(expireHours))
 		}
-		
+
 		writer.Close()
 		done <- nil
 	}()
-	
+
 	// Get base URL
-	baseURL := apiBase
-	if p, err := cfgPath(); err == nil {
-		if b, err := os.ReadFile(p); err == nil {
-			var cfg CLIConfig
-			if json.Unmarshal(b, &cfg) == nil {
-				baseURL = getBaseURL(&cfg)
-			}
-		}
-	}
-	
+	baseURL := getBaseURL()
+
 	// Create request
 	req, err := http.NewRequest("POST", baseURL+"/upload", pr)
 	if err != nil {
@@ -328,7 +364,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	
+
 	// Send request
 	client := httpClient(token)
 	resp, err := client.Do(req)
@@ -336,17 +372,17 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(b))
 	}
-	
+
 	// Wait for upload goroutine
 	if err := <-done; err != nil {
 		return err
 	}
-	
+
 	// Parse response
 	var result struct {
 		FileID   string `json:"file_id"`
@@ -357,7 +393,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 	} else {
 		fmt.Println("Upload complete!")
 	}
-	
+
 	return nil
 }
 
@@ -391,18 +427,18 @@ func cmdDownload(args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	resp, err := doRequest("GET", "/download/"+id, token, nil, "")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("download failed (status %d): %s", resp.StatusCode, string(b))
 	}
-	
+
 	// Determine output filename
 	filename := *output
 	if filename == "" {
@@ -418,20 +454,20 @@ func cmdDownload(args []string) error {
 			filename = filepath.Base(id)
 		}
 	}
-	
+
 	// Create output file
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	
+
 	// Create progress bar
 	total := resp.ContentLength
 	if total < 0 {
 		total = 0
 	}
-	
+
 	bar := progressbar.NewOptions64(
 		total,
 		progressbar.OptionSetDescription("Downloading"),
@@ -447,13 +483,13 @@ func cmdDownload(args []string) error {
 		progressbar.OptionFullWidth(),
 		progressbar.OptionSetRenderBlankState(true),
 	)
-	
+
 	// Download with progress
 	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Downloaded to: %s\n", filename)
 	return nil
 }
@@ -470,18 +506,18 @@ func cmdRm(args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	resp, err := doRequest("DELETE", "/files?id="+id, token, nil, "")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("delete failed (status %d): %s", resp.StatusCode, string(b))
 	}
-	
+
 	fmt.Printf("Successfully deleted file: %s\n", id)
 	return nil
 }
