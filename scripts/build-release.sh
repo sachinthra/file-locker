@@ -91,7 +91,8 @@ mkdir -p dist/deb/opt/filelocker
 echo -e "   ${YELLOW}•${NC} Injecting Docker username: ${DOCKER_USERNAME}"
 echo -e "   ${YELLOW}•${NC} Injecting version: ${VERSION}"
 sed -e "s/\${DOCKER_USERNAME}/${DOCKER_USERNAME}/g" \
-    -e "s/:latest/:${VERSION}/g" \
+    -e "s|${DOCKER_USERNAME}/filelocker-backend:latest|${DOCKER_USERNAME}/filelocker-backend:${VERSION}|g" \
+    -e "s|${DOCKER_USERNAME}/filelocker-frontend:latest|${DOCKER_USERNAME}/filelocker-frontend:${VERSION}|g" \
     install/docker-compose.yml > dist/deb/opt/filelocker/docker-compose.yml
 sed "s/DOCKER_USERNAME=_YOUR_DOCKER_USER_NAME/DOCKER_USERNAME=${DOCKER_USERNAME}/g" install/setup.sh > dist/deb/opt/filelocker/setup.sh
 chmod +x dist/deb/opt/filelocker/setup.sh
