@@ -6,6 +6,9 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Admin from './pages/Admin';
+import AdminAuditLogs from './pages/AdminAuditLogs';
+import AdminFiles from './pages/AdminFiles';
+import AdminUserDetails from './pages/AdminUserDetails';
 import { getToken } from './utils/auth';
 import { initTheme } from './utils/theme';
 
@@ -65,6 +68,18 @@ export function App() {
           />
           <Admin 
             path="/admin" 
+            isAuthenticated={isAuthenticated}
+          />
+          <AdminAuditLogs 
+            path="/admin/audit-logs" 
+            isAuthenticated={isAuthenticated}
+          />
+          <AdminFiles 
+            path="/admin/files" 
+            isAuthenticated={isAuthenticated}
+          />
+          <AdminUserDetails 
+            path="/admin/users/:userId" 
             isAuthenticated={isAuthenticated}
           />
         </Router>

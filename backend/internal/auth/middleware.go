@@ -103,10 +103,25 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// 7. Set userID in context
+		// 7. Check if user account is active
+		user, err := a.pg.GetUserByID(ctx, claims.UserID)
+		if err != nil {
+			log.Printf("[auth] Failed to get user for account status check: %v", err)
+			http.Error(w, `{"error":"User not found"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// Check if account is suspended
+		if !user.IsActive {
+			log.Printf("[auth] Blocked request from suspended user: %s (%s)", user.Username, user.ID)
+			http.Error(w, `{"error":"Account suspended. Contact administrator."}`, http.StatusForbidden)
+			return
+		}
+
+		// 8. Set userID in context
 		ctx = context.WithValue(r.Context(), "userID", claims.UserID)
 
-		// 8. Call next handler with updated context
+		// 9. Call next handler with updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

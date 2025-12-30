@@ -145,7 +145,7 @@ func main() {
 	streamHandler := api.NewStreamHandler(minioStorage, redisCache, pgStore)
 	filesHandler := api.NewFilesHandler(redisCache, minioStorage, pgStore)
 	exportHandler := api.NewExportHandler(minioStorage, pgStore)
-	adminHandler := api.NewAdminHandler(pgStore, minioStorage)
+	adminHandler := api.NewAdminHandler(pgStore, minioStorage, redisCache)
 
 	appLogger.Info("API handlers initialized")
 
@@ -240,10 +240,23 @@ func main() {
 			// Apply admin-only middleware
 			r.Use(authMiddleware.RequireAdmin)
 
-			// Admin operations
+			// System statistics
 			r.Get("/admin/stats", adminHandler.HandleGetStats)
+
+			// User management
 			r.Get("/admin/users", adminHandler.HandleGetUsers)
 			r.Delete("/admin/users/{id}", adminHandler.HandleDeleteUser)
+			r.Patch("/admin/users/{id}/status", adminHandler.HandleUpdateUserStatus)
+			r.Patch("/admin/users/{id}/role", adminHandler.HandleUpdateUserRole)
+			r.Post("/admin/users/{id}/reset-password", adminHandler.HandleResetUserPassword)
+			r.Post("/admin/users/{id}/logout", adminHandler.HandleForceLogoutUser)
+
+			// Global file management
+			r.Get("/admin/files", adminHandler.HandleGetAllFiles)
+			r.Delete("/admin/files/{id}", adminHandler.HandleDeleteAnyFile)
+
+			// Audit logs
+			r.Get("/admin/logs", adminHandler.HandleGetAuditLogs)
 		})
 	})
 

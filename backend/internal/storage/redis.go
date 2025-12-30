@@ -101,3 +101,42 @@ func (r *RedisCache) GetSession(ctx context.Context, token string) (string, erro
 func (r *RedisCache) DeleteSession(ctx context.Context, token string) error {
 	return r.client.Del(ctx, "session:"+token).Err()
 }
+
+// DeleteUserSessions removes all sessions for a specific user
+func (r *RedisCache) DeleteUserSessions(ctx context.Context, userID string) (int, error) {
+	// Scan for all session keys
+	var cursor uint64
+	var keys []string
+	pattern := "session:*"
+
+	for {
+		var scannedKeys []string
+		var err error
+		scannedKeys, cursor, err = r.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return 0, err
+		}
+
+		// Check each key's value to see if it matches the userID
+		for _, key := range scannedKeys {
+			val, err := r.client.Get(ctx, key).Result()
+			if err == nil && val == userID {
+				keys = append(keys, key)
+			}
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	// Delete all matching keys
+	if len(keys) > 0 {
+		err := r.client.Del(ctx, keys...).Err()
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return len(keys), nil
+}

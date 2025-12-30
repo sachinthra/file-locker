@@ -22,6 +22,7 @@ type User struct {
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"password_hash"`
 	Role         string    `json:"role"`
+	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -129,7 +130,7 @@ func (p *PostgresStore) CreateUser(ctx context.Context, username, email, passwor
 // GetUserByUsername retrieves a user by username
 func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	query := `
-		SELECT id, username, email, password_hash, role, created_at, updated_at
+		SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
 		FROM users
 		WHERE username = $1
 	`
@@ -141,6 +142,7 @@ func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 		&user.Email,
 		&user.PasswordHash,
 		&user.Role,
+		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -151,14 +153,13 @@ func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
-
 	return &user, nil
 }
 
 // GetUserByID retrieves a user by ID
 func (p *PostgresStore) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	query := `
-		SELECT id, username, email, password_hash, role, created_at, updated_at
+		SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -170,6 +171,7 @@ func (p *PostgresStore) GetUserByID(ctx context.Context, userID string) (*User, 
 		&user.Email,
 		&user.PasswordHash,
 		&user.Role,
+		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

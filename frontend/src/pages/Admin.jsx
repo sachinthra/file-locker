@@ -3,7 +3,6 @@ import { route } from 'preact-router';
 import { getUser, getToken } from '../utils/auth';
 import api from '../utils/api';
 import Toast from '../components/Toast';
-import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Admin({ isAuthenticated }) {
   const [stats, setStats] = useState({
@@ -13,10 +12,11 @@ export default function Admin({ isAuthenticated }) {
     active_users_24h: 0
   });
   const [users, setUsers] = useState([]);
+  const [recentLogs, setRecentLogs] = useState([]);
+  const [recentFiles, setRecentFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const user = getUser();
 
   const showToast = (message, type = 'info') => {
@@ -55,6 +55,22 @@ export default function Admin({ isAuthenticated }) {
       // Load users
       const usersResponse = await api.get('/admin/users');
       setUsers(usersResponse.data?.users || []);
+
+      // Load recent audit logs
+      try {
+        const logsResponse = await api.get('/admin/logs?limit=50');
+        setRecentLogs(logsResponse.data?.logs || []);
+      } catch (err) {
+        console.error('Failed to load audit logs:', err);
+      }
+
+      // Load recent files
+      try {
+        const filesResponse = await api.get('/admin/files');
+        setRecentFiles(filesResponse.data?.files?.slice(0, 10) || []);
+      } catch (err) {
+        console.error('Failed to load files:', err);
+      }
     } catch (err) {
       if (err.response?.status === 403) {
         setError('Admin access required');
@@ -68,30 +84,6 @@ export default function Admin({ isAuthenticated }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDeleteUser = (userId, username) => {
-    setDeleteConfirm({ id: userId, username });
-  };
-
-  const confirmDelete = async () => {
-    const userId = deleteConfirm.id;
-    const username = deleteConfirm.username;
-    setDeleteConfirm(null);
-
-    try {
-      await api.delete(`/admin/users/${userId}`);
-      showToast(`User ${username} deleted successfully`, 'success');
-      // Reload data
-      loadData();
-    } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to delete user', 'error');
-      console.error('Delete user error:', err);
-    }
-  };
-
-  const cancelDelete = () => {
-    setDeleteConfirm(null);
   };
 
   const formatBytes = (bytes) => {
@@ -148,7 +140,13 @@ export default function Admin({ isAuthenticated }) {
 
       {/* Stats Cards */}
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: var(--shadow-lg);">
+        <div 
+          class="card" 
+          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: var(--shadow-lg); cursor: pointer; transition: transform 0.2s;"
+          onClick={() => document.getElementById('users-section')?.scrollIntoView({ behavior: 'smooth' })}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h3 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 700;">
@@ -160,7 +158,13 @@ export default function Admin({ isAuthenticated }) {
           </div>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; box-shadow: var(--shadow-lg);">
+        <div 
+          class="card" 
+          style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; box-shadow: var(--shadow-lg); cursor: pointer; transition: transform 0.2s;"
+          onClick={() => route('/admin/files')}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h3 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 700;">
@@ -172,7 +176,13 @@ export default function Admin({ isAuthenticated }) {
           </div>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; box-shadow: var(--shadow-lg);">
+        <div 
+          class="card" 
+          style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; box-shadow: var(--shadow-lg); cursor: pointer; transition: transform 0.2s;"
+          onClick={() => route('/admin/files')}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h3 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 700;">
@@ -184,7 +194,13 @@ export default function Admin({ isAuthenticated }) {
           </div>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; box-shadow: var(--shadow-lg);">
+        <div 
+          class="card" 
+          style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; box-shadow: var(--shadow-lg); cursor: pointer; transition: transform 0.2s;"
+          onClick={() => document.getElementById('users-section')?.scrollIntoView({ behavior: 'smooth' })}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h3 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 700;">
@@ -198,7 +214,7 @@ export default function Admin({ isAuthenticated }) {
       </div>
 
       {/* Users Table */}
-      <div class="card">
+      <div id="users-section" class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
           <h2 style="margin: 0; font-size: 1.5rem;">User Management</h2>
           <button 
@@ -236,13 +252,30 @@ export default function Admin({ isAuthenticated }) {
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
+                  <tr 
+                    key={u.id} 
+                    style={{
+                      borderBottom: '1px solid var(--border-color)',
+                      transition: 'background-color 0.2s',
+                      opacity: u.is_active === false ? '0.5' : '1',
+                      background: u.is_active === false ? 'var(--bg-secondary)' : 'transparent'
+                    }}
+                  >
                     <td style="padding: 1rem;">
                       <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-color); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
                           {u.username.charAt(0).toUpperCase()}
                         </div>
-                        <span style="font-weight: 500;">{u.username}</span>
+                        <div>
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-weight: 500;">{u.username}</span>
+                            {u.is_active === false && (
+                              <span style="display: inline-block; padding: 0.125rem 0.5rem; background: #ef4444; color: white; border-radius: 9999px; font-size: 0.7rem; font-weight: 600;">
+                                SUSPENDED
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td style="padding: 1rem; color: var(--text-secondary);">{u.email}</td>
@@ -263,24 +296,20 @@ export default function Admin({ isAuthenticated }) {
                     <td style="padding: 1rem; text-align: right; font-weight: 500;">{formatBytes(u.total_storage)}</td>
                     <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">{formatDate(u.created_at)}</td>
                     <td style="padding: 1rem; text-align: center;">
-                      {u.id !== user?.id && u.role !== 'admin' ? (
+                      {u.id !== user?.id ? (
                         <button 
-                          class="btn btn-danger btn-sm"
-                          onClick={() => handleDeleteUser(u.id, u.username)}
-                          title="Delete user"
+                          class="btn btn-primary btn-sm"
+                          onClick={() => route(`/admin/users/${u.id}`)}
+                          title="View user details"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.25rem;">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
                           </svg>
-                          Delete
+                          Manage
                         </button>
                       ) : (
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">
-                          {u.id === user?.id ? 'You' : 'Protected'}
-                        </span>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">You</span>
                       )}
                     </td>
                   </tr>
@@ -291,17 +320,108 @@ export default function Admin({ isAuthenticated }) {
         )}
       </div>
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        isOpen={deleteConfirm !== null}
-        title="⚠️ Delete User?"
-        message={deleteConfirm ? `Are you sure you want to delete user "${deleteConfirm.username}"? This will permanently delete their account and all their files. This action cannot be undone.` : ''}
-        confirmText="Yes, Delete User"
-        cancelText="Cancel"
-        confirmStyle="danger"
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-      />
+      {/* Recent Audit Logs */}
+      <div class="card" style="margin-top: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="margin: 0; font-size: 1.5rem;">📋 Recent Audit Logs</h2>
+          <button 
+            class="btn btn-secondary btn-sm"
+            onClick={() => route('/admin/audit-logs')}
+          >
+            View All Logs
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-left: 0.5rem;">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        {recentLogs.length === 0 ? (
+          <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+            <p>No audit logs yet</p>
+          </div>
+        ) : (
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-secondary);">
+                  <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--text-secondary);">Action</th>
+                  <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--text-secondary);">Target</th>
+                  <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--text-secondary);">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentLogs.slice(0, 10).map(log => (
+                  <tr key={log.id} style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem;">
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '0.25rem 0.5rem',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.8rem',
+                        fontWeight: '500'
+                      }}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem; color: var(--text-secondary);">
+                      {log.target_type} {log.target_id ? `(${log.target_id.substring(0, 8)}...)` : ''}
+                    </td>
+                    <td style="padding: 0.75rem; color: var(--text-secondary);">{formatDate(log.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Files */}
+      <div class="card" style="margin-top: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="margin: 0; font-size: 1.5rem;">📁 Recent Files</h2>
+          <button 
+            class="btn btn-secondary btn-sm"
+            onClick={() => route('/admin/files')}
+          >
+            View All Files
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-left: 0.5rem;">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        {recentFiles.length === 0 ? (
+          <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+            <p>No files yet</p>
+          </div>
+        ) : (
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-color); background: var(--bg-secondary);">
+                  <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--text-secondary);">Filename</th>
+                  <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--text-secondary);">Owner</th>
+                  <th style="padding: 0.75rem; text-align: right; font-weight: 600; color: var(--text-secondary);">Size</th>
+                  <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--text-secondary);">Uploaded</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentFiles.map(file => (
+                  <tr key={file.id} style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem; font-weight: 500;">{file.filename}</td>
+                    <td style="padding: 0.75rem; color: var(--text-secondary);">
+                      {file.username?.Valid ? file.username.String : 'Unknown'}
+                    </td>
+                    <td style="padding: 0.75rem; text-align: right; color: var(--text-secondary);">{formatBytes(file.size)}</td>
+                    <td style="padding: 0.75rem; color: var(--text-secondary);">{formatDate(file.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
