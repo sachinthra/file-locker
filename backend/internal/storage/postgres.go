@@ -17,14 +17,15 @@ type PostgresStore struct {
 }
 
 type User struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"password_hash"`
-	Role         string    `json:"role"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	PasswordHash  string    `json:"password_hash"`
+	Role          string    `json:"role"`
+	IsActive      bool      `json:"is_active"`
+	AccountStatus string    `json:"account_status"` // 'pending', 'active', 'rejected', 'suspended'
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // NewPostgresStore creates a new PostgreSQL connection with connection pooling
@@ -103,19 +104,38 @@ func (p *PostgresStore) VerifyPersonalAccessToken(ctx context.Context, rawToken 
 
 // CreateUser creates a new user in the database
 func (p *PostgresStore) CreateUser(ctx context.Context, username, email, passwordHash string) (*User, error) {
+	// Check if auto-approve is enabled
+	var autoApprove bool
+	autoApproveQuery := `SELECT value FROM settings WHERE key = 'registration_auto_approve'`
+	var autoApproveStr string
+	err := p.db.QueryRowContext(ctx, autoApproveQuery).Scan(&autoApproveStr)
+	if err != nil || autoApproveStr != "true" {
+		autoApprove = false
+	} else {
+		autoApprove = true
+	}
+
+	// Set account status based on auto-approve setting
+	accountStatus := "pending"
+	if autoApprove {
+		accountStatus = "active"
+	}
+
 	query := `
-		INSERT INTO users (username, email, password_hash)
-		VALUES ($1, $2, $3)
-		RETURNING id, username, email, password_hash, role, created_at, updated_at
+		INSERT INTO users (username, email, password_hash, account_status)
+		VALUES ($1, $2, $3, $4::account_status)
+		RETURNING id, username, email, password_hash, role, is_active, account_status, created_at, updated_at
 	`
 
 	var user User
-	err := p.db.QueryRowContext(ctx, query, username, email, passwordHash).Scan(
+	err = p.db.QueryRowContext(ctx, query, username, email, passwordHash, accountStatus).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
 		&user.Role,
+		&user.IsActive,
+		&user.AccountStatus,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -130,7 +150,7 @@ func (p *PostgresStore) CreateUser(ctx context.Context, username, email, passwor
 // GetUserByUsername retrieves a user by username
 func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	query := `
-		SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
+		SELECT id, username, email, password_hash, role, is_active, account_status, created_at, updated_at
 		FROM users
 		WHERE username = $1
 	`
@@ -143,6 +163,7 @@ func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 		&user.PasswordHash,
 		&user.Role,
 		&user.IsActive,
+		&user.AccountStatus,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -159,7 +180,7 @@ func (p *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 // GetUserByID retrieves a user by ID
 func (p *PostgresStore) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	query := `
-		SELECT id, username, email, password_hash, role, is_active, created_at, updated_at
+		SELECT id, username, email, password_hash, role, is_active, account_status, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -172,6 +193,7 @@ func (p *PostgresStore) GetUserByID(ctx context.Context, userID string) (*User, 
 		&user.PasswordHash,
 		&user.Role,
 		&user.IsActive,
+		&user.AccountStatus,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

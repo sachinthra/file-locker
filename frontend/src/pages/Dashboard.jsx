@@ -7,6 +7,7 @@ import FileUpload from '../components/FileUpload';
 import FileStats from '../components/FileStats';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import AnnouncementBanner from '../components/AnnouncementBanner';
 
 export default function Dashboard({ isAuthenticated, setIsAuthenticated, addNotification }) {
   const [allFiles, setAllFiles] = useState([]);
@@ -251,6 +252,9 @@ export default function Dashboard({ isAuthenticated, setIsAuthenticated, addNoti
           </button>
         </div>
       )}
+
+      {/* Announcement Banner */}
+      <AnnouncementBanner />
 
       <div class="dashboard-grid">
         {/* Column 1: Statistics */}

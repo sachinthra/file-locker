@@ -1,18 +1,43 @@
 import { useState, useEffect } from 'preact/hooks';
 import { route } from 'preact-router';
-import { removeToken, getUser } from '../utils/auth';
+import { removeToken, getUser, getToken } from '../utils/auth';
 import { logout } from '../utils/api';
 import { getTheme, toggleTheme } from '../utils/theme';
 import NotificationCenter from './NotificationCenter';
+import api from '../utils/api';
 
 export default function Header({ isAuthenticated, setIsAuthenticated, notifications = [], onClearAllNotifications, onClearNotification }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [theme, setTheme] = useState('light');
+  const [pendingCount, setPendingCount] = useState(0);
   const user = isAuthenticated ? getUser() : null;
 
   useEffect(() => {
     setTheme(getTheme());
-  }, []);
+    
+    // Fetch pending users count for admin
+    if (isAuthenticated && getToken() && user?.role === 'admin') {
+      fetchPendingCount();
+      // Poll every 30 seconds
+      const interval = setInterval(fetchPendingCount, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setPendingCount(0);
+    }
+  }, [isAuthenticated, user?.role]);
+
+  const fetchPendingCount = async () => {
+    if (!isAuthenticated || !getToken() || user?.role !== 'admin') return;
+    try {
+      const response = await api.get('/admin/users/pending');
+      setPendingCount(response.data?.count || 0);
+    } catch (err) {
+      // Silently fail for 401 errors (user not admin or not logged in)
+      if (err.response?.status !== 401) {
+        console.error('Failed to fetch pending users count:', err);
+      }
+    }
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -148,7 +173,14 @@ export default function Header({ isAuthenticated, setIsAuthenticated, notificati
                           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                         </svg>
                         <span style="flex: 1; color: var(--primary-color); font-weight: 600;">Admin Panel</span>
-                        <span style="background: var(--primary-color); color: white; padding: 0.125rem 0.5rem; border-radius: var(--radius-xl); font-size: 0.7rem; font-weight: 600;">ADMIN</span>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                          {pendingCount > 0 && (
+                            <span style="background: #ef4444; color: white; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; animation: pulse 2s infinite;">
+                              {pendingCount}
+                            </span>
+                          )}
+                          <span style="background: var(--primary-color); color: white; padding: 0.125rem 0.5rem; border-radius: var(--radius-xl); font-size: 0.7rem; font-weight: 600;">ADMIN</span>
+                        </div>
                       </a>
                     )}
                     <div class="user-menu-divider"></div>

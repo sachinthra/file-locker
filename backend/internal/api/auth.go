@@ -69,6 +69,20 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check account status
+	if user.AccountStatus == "pending" {
+		respondError(w, http.StatusForbidden, "Account awaiting admin approval")
+		return
+	}
+	if user.AccountStatus == "rejected" {
+		respondError(w, http.StatusForbidden, "Account has been rejected by administrator")
+		return
+	}
+	if user.AccountStatus == "suspended" || !user.IsActive {
+		respondError(w, http.StatusForbidden, "Account has been suspended")
+		return
+	}
+
 	// Generate JWT token
 	token, err := h.jwtService.GenerateToken(user.ID)
 	if err != nil {
@@ -129,6 +143,18 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	user, err := h.pgStore.CreateUser(r.Context(), req.Username, req.Email, string(hashedPassword))
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create user")
+		return
+	}
+
+	// If account is pending, return success but no token
+	if user.AccountStatus == "pending" {
+		log.Printf("User %s registered (pending approval)", user.Username)
+		respondJSON(w, http.StatusCreated, map[string]interface{}{
+			"message":        "Registration successful. Your account is awaiting admin approval.",
+			"status":         "pending",
+			"user_id":        user.ID,
+			"account_status": user.AccountStatus,
+		})
 		return
 	}
 

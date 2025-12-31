@@ -78,6 +78,11 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
   };
 
   const handleSuspend = () => {
+    const currentUserId = currentUser?.user_id || currentUser?.id;
+    if (String(userId) === String(currentUserId)) {
+      showToast('You cannot suspend your own account', 'error');
+      return;
+    }
     const action = userDetails.is_active !== false ? 'suspend' : 'activate';
     setConfirmDialog({
       type: 'suspend',
@@ -92,6 +97,11 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
   };
 
   const handleChangeRole = () => {
+    const currentUserId = currentUser?.user_id || currentUser?.id;
+    if (String(userId) === String(currentUserId)) {
+      showToast('You cannot change your own role', 'error');
+      return;
+    }
     const newRole = userDetails.role === 'admin' ? 'user' : 'admin';
     setConfirmDialog({
       type: 'role',
@@ -106,6 +116,11 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
   };
 
   const handleResetPassword = () => {
+    const currentUserId = currentUser?.user_id || currentUser?.id;
+    if (String(userId) === String(currentUserId)) {
+      showToast('You cannot reset your own password from here. Use Settings instead.', 'error');
+      return;
+    }
     setConfirmDialog({
       type: 'reset',
       title: '🔑 Reset Password?',
@@ -115,8 +130,10 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
     });
   };
 
-  const handleForceLogout = () => {
-    setConfirmDialog({
+  const handleForceLogout = () => {    if (String(userId) === String(currentUser?.id)) {
+      showToast('You cannot force logout yourself. Use the normal logout instead.', 'error');
+      return;
+    }    setConfirmDialog({
       type: 'logout',
       title: '🚪 Force Logout?',
       message: `Force logout user "${userDetails.username}"? All their active sessions will be terminated.`,
@@ -126,6 +143,11 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
   };
 
   const handleDeleteUser = () => {
+    const currentUserId = currentUser?.user_id || currentUser?.id;
+    if (String(userId) === String(currentUserId)) {
+      showToast('You cannot delete your own account', 'error');
+      return;
+    }
     setConfirmDialog({
       type: 'delete',
       title: '⚠️ Delete User?',
@@ -214,8 +236,16 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
     );
   }
 
-  const isCurrentUser = userId === currentUser?.id;
+  // Ensure proper string comparison for UUIDs
+  // Backend returns user_id, not id
+  const currentUserId = currentUser?.user_id || currentUser?.id;
+  const isCurrentUser = String(userId) === String(currentUserId);
   const isAdmin = userDetails.role === 'admin';
+  
+  // Debug log to verify comparison
+  console.log('[AdminUserDetails] userId:', userId, 'type:', typeof userId);
+  console.log('[AdminUserDetails] currentUser.user_id:', currentUser?.user_id, 'type:', typeof currentUser?.user_id);
+  console.log('[AdminUserDetails] isCurrentUser:', isCurrentUser);
 
   return (
     <div class="admin-container" style="padding: 2rem; max-width: 1400px; margin: 0 auto;">
@@ -237,6 +267,14 @@ export default function AdminUserDetails({ isAuthenticated, userId }) {
           👤 User Details
         </h1>
       </div>
+
+      {/* Self-Account Notice */}
+      {isCurrentUser && (
+        <div class="alert alert-info" style="margin-bottom: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+          <strong>👤 Viewing Your Own Account</strong>
+          <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">You cannot perform admin actions on your own account for security reasons.</p>
+        </div>
+      )}
 
       {/* User Info Card */}
       <div class="card" style="margin-bottom: 2rem;">

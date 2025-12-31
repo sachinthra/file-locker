@@ -90,3 +90,32 @@ func (m *MinIOStorage) GetFileInfo(ctx context.Context, objectName string) (mini
 	}
 	return info, nil
 }
+
+// MinIOObject represents a MinIO object for storage analysis
+type MinIOObject struct {
+	Key  string
+	Size int64
+}
+
+// ListAllObjects lists all objects in the bucket for storage analysis
+func (m *MinIOStorage) ListAllObjects(ctx context.Context) ([]MinIOObject, error) {
+	var objects []MinIOObject
+
+	// Create a channel to receive objects
+	objectCh := m.client.ListObjects(ctx, m.bucket, minio.ListObjectsOptions{
+		Recursive: true,
+	})
+
+	for object := range objectCh {
+		if object.Err != nil {
+			return nil, fmt.Errorf("failed to list objects: %w", object.Err)
+		}
+
+		objects = append(objects, MinIOObject{
+			Key:  object.Key,
+			Size: object.Size,
+		})
+	}
+
+	return objects, nil
+}

@@ -231,6 +231,10 @@ func main() {
 			r.Post("/auth/tokens", tokensHandler.HandleCreateToken)
 			r.Get("/auth/tokens", tokensHandler.HandleListTokens)
 			r.Delete("/auth/tokens/{id}", tokensHandler.HandleRevokeToken)
+
+			// Announcements (user operations)
+			r.Get("/announcements", adminHandler.HandleGetAnnouncements)
+			r.Post("/announcements/{id}/dismiss", adminHandler.HandleDismissAnnouncement)
 		})
 
 		// Admin routes (authentication + admin role required)
@@ -245,15 +249,31 @@ func main() {
 
 			// User management
 			r.Get("/admin/users", adminHandler.HandleGetUsers)
+			r.Get("/admin/users/pending", adminHandler.HandleGetPendingUsers)
+			r.Post("/admin/users/{id}/approve", adminHandler.HandleApproveUser)
+			r.Post("/admin/users/{id}/reject", adminHandler.HandleRejectUser)
 			r.Delete("/admin/users/{id}", adminHandler.HandleDeleteUser)
 			r.Patch("/admin/users/{id}/status", adminHandler.HandleUpdateUserStatus)
 			r.Patch("/admin/users/{id}/role", adminHandler.HandleUpdateUserRole)
 			r.Post("/admin/users/{id}/reset-password", adminHandler.HandleResetUserPassword)
 			r.Post("/admin/users/{id}/logout", adminHandler.HandleForceLogoutUser)
 
+			// Settings management
+			r.Get("/admin/settings", adminHandler.HandleGetSettings)
+			r.Patch("/admin/settings", adminHandler.HandleUpdateSetting)
+
+			// Announcements management
+			r.Get("/admin/announcements", adminHandler.HandleGetAnnouncements)
+			r.Post("/admin/announcements", adminHandler.HandleCreateAnnouncement)
+			r.Delete("/admin/announcements/{id}", adminHandler.HandleDeleteAnnouncement)
+
 			// Global file management
 			r.Get("/admin/files", adminHandler.HandleGetAllFiles)
 			r.Delete("/admin/files/{id}", adminHandler.HandleDeleteAnyFile)
+
+			// Storage cleanup
+			r.Get("/admin/storage/analyze", adminHandler.HandleAnalyzeStorage)
+			r.Post("/admin/storage/cleanup", adminHandler.HandleCleanupStorage)
 
 			// Audit logs
 			r.Get("/admin/logs", adminHandler.HandleGetAuditLogs)
