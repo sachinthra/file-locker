@@ -1,7 +1,7 @@
-const THEME_KEY = 'file-locker-theme';
+const THEME_KEY = "file-locker-theme";
 
 export const getTheme = () => {
-  return localStorage.getItem(THEME_KEY) || 'light';
+  return localStorage.getItem(THEME_KEY) || "light";
 };
 
 export const saveTheme = (theme) => {
@@ -11,13 +11,13 @@ export const saveTheme = (theme) => {
 
 export const toggleTheme = () => {
   const currentTheme = getTheme();
-  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  const newTheme = currentTheme === "light" ? "dark" : "light";
   saveTheme(newTheme);
   return newTheme;
 };
 
 export const applyTheme = (theme) => {
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute("data-theme", theme);
 };
 
 export const initTheme = () => {

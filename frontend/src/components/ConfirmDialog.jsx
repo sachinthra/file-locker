@@ -1,30 +1,30 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect } from "preact/hooks";
 
-export default function ConfirmDialog({ 
-  isOpen, 
-  title = 'Confirm Action',
-  message, 
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  confirmStyle = 'danger', // 'danger', 'primary', 'secondary'
-  onConfirm, 
-  onCancel 
+export default function ConfirmDialog({
+  isOpen,
+  title = "Confirm Action",
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  confirmStyle = "danger", // 'danger', 'primary', 'secondary'
+  onConfirm,
+  onCancel,
 }) {
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         e.preventDefault();
         onCancel();
-      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         onConfirm();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onCancel, onConfirm]);
 
   if (!isOpen) return null;
@@ -33,11 +33,21 @@ export default function ConfirmDialog({
 
   return (
     <div class="modal-overlay" onClick={onCancel}>
-      <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 400px;">
+      <div
+        class="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style="max-width: 400px;"
+      >
         <div class="modal-header">
           <h3>{title}</h3>
           <button class="btn btn-icon" onClick={onCancel} title="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>

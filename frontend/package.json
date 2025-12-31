@@ -5,9 +5,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\""
   },
-  "keywords": ["file-locker", "encryption", "preact"],
+  "keywords": [
+    "file-locker",
+    "encryption",
+    "preact"
+  ],
   "author": "",
   "license": "ISC",
   "description": "File Locker Frontend - Secure file storage and streaming",
@@ -18,6 +23,7 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.8.1",
+    "prettier": "^3.7.4",
     "vite": "^5.0.10"
   }
 }

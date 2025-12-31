@@ -1,38 +1,40 @@
-import { useState, useEffect } from 'preact/hooks';
-import { route } from 'preact-router';
-import { register } from '../utils/api';
-import { getToken } from '../utils/auth';
+import { useState, useEffect } from "preact/hooks";
+import { route } from "preact-router";
+import { register } from "../utils/api";
+import { getToken } from "../utils/auth";
 
 export default function Register() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // If already logged in, redirect to dashboard
     if (getToken()) {
-      route('/dashboard', true);
+      route("/dashboard", true);
     }
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError("Password must be at least 8 characters");
       setLoading(false);
       return;
     }
 
     try {
       await register(username, password, email);
-      route('/login');
+      route("/login");
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      setError(
+        err.response?.data?.error || "Registration failed. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -42,7 +44,7 @@ export default function Register() {
     <div class="form">
       <h2>Create Account</h2>
       {error && <div class="alert alert-error">{error}</div>}
-      
+
       <form onSubmit={handleSubmit}>
         <div class="form-group">
           <label class="form-label">Username</label>
@@ -80,8 +82,13 @@ export default function Register() {
           <small style="color: #666">Must be at least 8 characters</small>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%" disabled={loading}>
-          {loading ? 'Creating account...' : 'Register'}
+        <button
+          type="submit"
+          class="btn btn-primary"
+          style="width: 100%"
+          disabled={loading}
+        >
+          {loading ? "Creating account..." : "Register"}
         </button>
       </form>
 

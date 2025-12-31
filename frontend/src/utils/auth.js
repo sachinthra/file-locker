@@ -1,5 +1,5 @@
-const TOKEN_KEY = 'filelocker_token';
-const USER_KEY = 'filelocker_user';
+const TOKEN_KEY = "filelocker_token";
+const USER_KEY = "filelocker_user";
 
 export const saveToken = (token) => {
   localStorage.setItem(TOKEN_KEY, token);

@@ -1,8 +1,8 @@
-import axios from 'axios';
-import { getToken } from './auth';
+import axios from "axios";
+import { getToken } from "./auth";
 
 // Use relative URL - Nginx will proxy /api/* to backend
-const API_BASE_URL = '/api/v1';
+const API_BASE_URL = "/api/v1";
 // const API_BASE_URL = 'http://localhost:9010/api/v1';
 
 const api = axios.create({
@@ -20,37 +20,43 @@ api.interceptors.request.use((config) => {
 
 // Auth APIs
 export const login = (username, password) => {
-  return api.post('/auth/login', { username, password });
+  return api.post("/auth/login", { username, password });
 };
 
 export const register = (username, password, email) => {
-  return api.post('/auth/register', { username, password, email });
+  return api.post("/auth/register", { username, password, email });
 };
 
 export const logout = () => {
-  return api.post('/auth/logout');
+  return api.post("/auth/logout");
 };
 
 export const getMe = () => {
-  return api.get('/auth/me');
+  return api.get("/auth/me");
 };
 
 // File APIs
-export const uploadFile = (file, tags, expireAfter, description, onProgress) => {
+export const uploadFile = (
+  file,
+  tags,
+  expireAfter,
+  description,
+  onProgress,
+) => {
   const formData = new FormData();
-  formData.append('file', file);
-  if (tags) formData.append('tags', tags);
-  if (expireAfter) formData.append('expire_after', expireAfter);
-  if (description) formData.append('description', description);
+  formData.append("file", file);
+  if (tags) formData.append("tags", tags);
+  if (expireAfter) formData.append("expire_after", expireAfter);
+  if (description) formData.append("description", description);
 
-  return api.post('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  return api.post("/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
     onUploadProgress: onProgress,
   });
 };
 
 export const listFiles = () => {
-  return api.get('/files');
+  return api.get("/files");
 };
 
 export const searchFiles = (query) => {
@@ -67,8 +73,8 @@ export const updateFile = (fileId, data) => {
 
 export const downloadFile = (fileId, onProgress) => {
   return api.get(`/download/${fileId}`, {
-    responseType: 'blob',
-    onDownloadProgress: onProgress
+    responseType: "blob",
+    onDownloadProgress: onProgress,
   });
 };
 
@@ -83,9 +89,9 @@ export const getStreamUrl = (fileId) => {
 };
 
 export const exportAllFiles = (onProgress) => {
-  return api.get('/files/export', {
-    responseType: 'blob',
-    onDownloadProgress: onProgress
+  return api.get("/files/export", {
+    responseType: "blob",
+    onDownloadProgress: onProgress,
   });
 };
 
