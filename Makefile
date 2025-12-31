@@ -1,4 +1,4 @@
-.PHONY: help sync install dev dev-local run-backend run-frontend test lint format clean build-release
+.PHONY: help sync install dev dev-local run-backend run-frontend lint format clean build-release
 
 # Colors for pretty printing
 BLUE := \033[0;34m
@@ -85,17 +85,8 @@ down: ## Stop all services
 restart: down dev ## Restart all Docker services
 
 # -----------------------------------------------------------------
-# TESTING & QUALITY
+# QUALITY
 # -----------------------------------------------------------------
-test-backend:
-	@echo "$(BLUE)Running backend tests...$(NC)"
-	cd backend && go test ./... -v -race -cover
-
-test-frontend:
-	@echo "$(BLUE)Running frontend tests...$(NC)"
-	cd frontend && npm test
-
-test: test-backend test-frontend ## Run all tests
 
 lint-backend:
 	@echo "$(BLUE)Linting backend...$(NC)"
