@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -103,7 +105,11 @@ func (h *AdminHandler) HandleGetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	err = json.NewEncoder(w).Encode(stats)
+	if err != nil {
+		log.Printf("[admin] Failed to encode stats response: %v", err)
+		http.Error(w, `{"error":"Failed to get statistics"}`, http.StatusInternalServerError)
+	}
 }
 
 // HandleGetUsers returns list of all users with their statistics
@@ -165,9 +171,13 @@ func (h *AdminHandler) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	err = json.NewEncoder(w).Encode(map[string]interface{}{
 		"users": users,
 	})
+	if err != nil {
+		log.Printf("[admin] Failed to encode users response: %v", err)
+		http.Error(w, `{"error":"Failed to get users"}`, http.StatusInternalServerError)
+	}
 }
 
 // HandleDeleteUser deletes a user and all their files
@@ -181,7 +191,7 @@ func (h *AdminHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get the requesting admin's user ID
-	adminUserID := r.Context().Value("userID")
+	adminUserID := r.Context().Value(constants.UserIDKey)
 	if adminUserID == nil {
 		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
 		return
@@ -235,7 +245,7 @@ func (h *AdminHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 	log.Printf("[admin] Successfully deleted user %s (%s) with %d files", user.Username, userID, len(files))
 
 	// Log audit action
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 	h.auditLogger.LogAdminAction(ctx, adminID, "USER_DELETED", "user", userID, map[string]interface{}{
 		"username":      user.Username,
 		"files_deleted": len(files),
@@ -256,7 +266,7 @@ func (h *AdminHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 func (h *AdminHandler) HandleUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	userID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if userID == "" {
 		http.Error(w, `{"error":"User ID required"}`, http.StatusBadRequest)
@@ -321,7 +331,7 @@ func (h *AdminHandler) HandleUpdateUserStatus(w http.ResponseWriter, r *http.Req
 func (h *AdminHandler) HandleUpdateUserRole(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	userID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if userID == "" {
 		http.Error(w, `{"error":"User ID required"}`, http.StatusBadRequest)
@@ -386,7 +396,7 @@ func (h *AdminHandler) HandleUpdateUserRole(w http.ResponseWriter, r *http.Reque
 func (h *AdminHandler) HandleResetUserPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	userID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if userID == "" {
 		http.Error(w, `{"error":"User ID required"}`, http.StatusBadRequest)
@@ -451,7 +461,7 @@ func (h *AdminHandler) HandleResetUserPassword(w http.ResponseWriter, r *http.Re
 func (h *AdminHandler) HandleForceLogoutUser(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	userID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if userID == "" {
 		http.Error(w, `{"error":"User ID required"}`, http.StatusBadRequest)
@@ -652,7 +662,7 @@ func (h *AdminHandler) HandleGetAllFiles(w http.ResponseWriter, r *http.Request)
 func (h *AdminHandler) HandleDeleteAnyFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	fileID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if fileID == "" {
 		http.Error(w, `{"error":"File ID required"}`, http.StatusBadRequest)
@@ -771,7 +781,7 @@ func (h *AdminHandler) HandleGetPendingUsers(w http.ResponseWriter, r *http.Requ
 func (h *AdminHandler) HandleApproveUser(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	userID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if userID == "" {
 		http.Error(w, `{"error":"User ID required"}`, http.StatusBadRequest)
@@ -819,7 +829,7 @@ func (h *AdminHandler) HandleApproveUser(w http.ResponseWriter, r *http.Request)
 func (h *AdminHandler) HandleRejectUser(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	userID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if userID == "" {
 		http.Error(w, `{"error":"User ID required"}`, http.StatusBadRequest)
@@ -904,7 +914,7 @@ func (h *AdminHandler) HandleGetSettings(w http.ResponseWriter, r *http.Request)
 // HandleUpdateSetting updates a system setting
 func (h *AdminHandler) HandleUpdateSetting(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	var req struct {
 		Key   string `json:"key"`
@@ -958,7 +968,7 @@ func (h *AdminHandler) HandleUpdateSetting(w http.ResponseWriter, r *http.Reques
 // HandleGetAnnouncements returns active announcements (optionally filtered by un-dismissed for user)
 func (h *AdminHandler) HandleGetAnnouncements(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	userID := r.Context().Value("userID")
+	userID := r.Context().Value(constants.UserIDKey)
 
 	// Check if we should filter by un-dismissed for this user
 	filterUndismissed := r.URL.Query().Get("undismissed") == "true"
@@ -1071,10 +1081,14 @@ func (h *AdminHandler) HandleGetAnnouncements(w http.ResponseWriter, r *http.Req
 		}
 
 		// Parse target_user_ids if present (PostgreSQL array as string)
-		// This is a simplified parser; production code might need more robust handling
 		if targetUserIDs.Valid && targetUserIDs.String != "" {
-			// Remove {}, split by comma
-			// Note: This is basic; for production, consider using a proper array scanner
+			// 1. Trim the curly braces "{}" from the string
+			trimmed := strings.Trim(targetUserIDs.String, "{}")
+
+			// 2. Split by comma if there's content left
+			if len(trimmed) > 0 {
+				ann.TargetUserIDs = strings.Split(trimmed, ",")
+			}
 		}
 
 		announcements = append(announcements, ann)
@@ -1094,7 +1108,7 @@ func (h *AdminHandler) HandleGetAnnouncements(w http.ResponseWriter, r *http.Req
 // HandleCreateAnnouncement creates a new announcement
 func (h *AdminHandler) HandleCreateAnnouncement(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	var req struct {
 		Title         string   `json:"title"`
@@ -1174,7 +1188,7 @@ func (h *AdminHandler) HandleCreateAnnouncement(w http.ResponseWriter, r *http.R
 func (h *AdminHandler) HandleDeleteAnnouncement(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	announcementID := chi.URLParam(r, "id")
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	if announcementID == "" {
 		http.Error(w, `{"error":"Announcement ID required"}`, http.StatusBadRequest)
@@ -1211,7 +1225,7 @@ func (h *AdminHandler) HandleDeleteAnnouncement(w http.ResponseWriter, r *http.R
 func (h *AdminHandler) HandleDismissAnnouncement(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	announcementID := chi.URLParam(r, "id")
-	userID := r.Context().Value("userID").(string)
+	userID := r.Context().Value(constants.UserIDKey).(string)
 
 	if announcementID == "" {
 		http.Error(w, `{"error":"Announcement ID required"}`, http.StatusBadRequest)
@@ -1246,7 +1260,7 @@ func (h *AdminHandler) HandleDismissAnnouncement(w http.ResponseWriter, r *http.
 // HandleAnalyzeStorage analyzes storage for orphaned files
 func (h *AdminHandler) HandleAnalyzeStorage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	log.Printf("[admin] Starting storage analysis by admin %s", adminID)
 
@@ -1343,7 +1357,7 @@ func (h *AdminHandler) HandleAnalyzeStorage(w http.ResponseWriter, r *http.Reque
 // HandleCleanupStorage cleans up orphaned files from MinIO
 func (h *AdminHandler) HandleCleanupStorage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	adminID := r.Context().Value("userID").(string)
+	adminID := r.Context().Value(constants.UserIDKey).(string)
 
 	var req struct {
 		OrphanedPaths []string `json:"orphaned_paths"`

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
 
@@ -37,7 +38,7 @@ type FileInfo struct {
 
 func (h *FilesHandler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -81,7 +82,7 @@ func (h *FilesHandler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 
 func (h *FilesHandler) HandleSearchFiles(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -133,7 +134,7 @@ func (h *FilesHandler) HandleSearchFiles(w http.ResponseWriter, r *http.Request)
 
 func (h *FilesHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -184,7 +185,7 @@ type UpdateFileRequest struct {
 
 func (h *FilesHandler) HandleUpdateFile(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return

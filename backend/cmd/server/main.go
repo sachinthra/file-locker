@@ -94,7 +94,7 @@ func main() {
 		slog.String("host", cfg.Storage.Database.Host),
 		slog.String("database", cfg.Storage.Database.DBName),
 	)
-	defer pgStore.Close()
+	defer func() { _ = pgStore.Close() }()
 
 	// Initialize MinIO
 	minioStorage, err := storage.NewMinIOStorage(
@@ -172,7 +172,7 @@ func main() {
 	// Health check endpoint (supports both GET and HEAD)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy"}`))
 	})
 	r.Head("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -10,6 +10,7 @@ import (
 
 	"log"
 
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
 
@@ -75,9 +76,9 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			}
 			// token verified; set userID in context
 			log.Printf("[auth] PAT accepted id=%s user=%s from=%s", tokenID, userID, r.RemoteAddr)
-			ctx := context.WithValue(r.Context(), "userID", userID)
+			ctx := context.WithValue(r.Context(), constants.UserIDKey, userID)
 			// optionally attach token ID
-			ctx = context.WithValue(ctx, "patID", tokenID)
+			ctx = context.WithValue(ctx, constants.PatIDKey, tokenID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -119,7 +120,7 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 		}
 
 		// 8. Set userID in context
-		ctx = context.WithValue(r.Context(), "userID", claims.UserID)
+		ctx = context.WithValue(r.Context(), constants.UserIDKey, claims.UserID)
 
 		// 9. Call next handler with updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -130,7 +131,7 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 func (a *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Get userID from context (set by RequireAuth)
-		userID := r.Context().Value("userID")
+		userID := r.Context().Value(constants.UserIDKey)
 		if userID == nil {
 			http.Error(w, `{"error":"User not authenticated"}`, http.StatusUnauthorized)
 			return
@@ -163,7 +164,7 @@ func (a *AuthMiddleware) RateLimitMiddleware(requests int, window time.Duration)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// 1. Get userID from context (set by RequireAuth)
-			userID := r.Context().Value("userID")
+			userID := r.Context().Value(constants.UserIDKey)
 			if userID == nil {
 				http.Error(w, `{"error":"User not authenticated"}`, http.StatusUnauthorized)
 				return

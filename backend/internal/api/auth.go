@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sachinthra/file-locker/backend/internal/auth"
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -219,7 +220,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context (set by RequireAuth middleware)
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return

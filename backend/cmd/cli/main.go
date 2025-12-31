@@ -67,16 +67,6 @@ func loadConfig() (*CLIConfig, error) {
 	return &cfg, nil
 }
 
-func saveToken(token string) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		// Create new config if doesn't exist
-		cfg = &CLIConfig{BaseURL: apiBase}
-	}
-	cfg.Token = token
-	return saveConfig(*cfg)
-}
-
 func loadToken() (string, error) {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -146,7 +136,10 @@ func cmdLogin(args []string) error {
 	userPtr := fs.String("u", "", "username")
 	passPtr := fs.String("p", "", "password")
 	hostPtr := fs.String("host", "", "server URL (e.g., http://raspberrypi.local:8080)")
-	fs.Parse(args)
+	err := fs.Parse(args)
+	if err != nil {
+		return err
+	}
 
 	// Load existing config or create new one
 	cfg, err := loadConfig()
@@ -173,7 +166,7 @@ func cmdLogin(args []string) error {
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("invalid token (status %d)", resp.StatusCode)
 		}
@@ -193,7 +186,7 @@ func cmdLogin(args []string) error {
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("login failed (status %d)", resp.StatusCode)
@@ -229,7 +222,7 @@ func cmdLs(jsonOut bool) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("error: %s", resp.Status)
 	}
@@ -260,8 +253,8 @@ func cmdLs(jsonOut bool) error {
 
 	// Use tabwriter for clean table formatting
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tSIZE\tUPLOADED\tEXPIRES")
-	fmt.Fprintln(w, "---\t----\t----\t--------\t-------")
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tSIZE\tUPLOADED\tEXPIRES")
+	_, _ = fmt.Fprintln(w, "---\t----\t----\t--------\t-------")
 
 	for _, f := range parsed.Files {
 		id := f.ID
@@ -281,7 +274,7 @@ func cmdLs(jsonOut bool) error {
 			}
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, f.FileName, size, uploaded, expires)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, f.FileName, size, uploaded, expires)
 	}
 	w.Flush()
 
@@ -293,7 +286,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	stat, err := file.Stat()
 	if err != nil {
@@ -344,10 +337,10 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 
 		// Add optional fields
 		if tags != "" {
-			writer.WriteField("tags", tags)
+			_ = writer.WriteField("tags", tags)
 		}
 		if expireHours > 0 {
-			writer.WriteField("expire_hours", fmt.Sprint(expireHours))
+			_ = writer.WriteField("expire_hours", fmt.Sprint(expireHours))
 		}
 
 		writer.Close()
@@ -401,7 +394,10 @@ func cmdUpload(args []string) error {
 	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
 	tags := fs.String("tags", "", "comma separated tags")
 	expire := fs.Int("expire", 0, "expiration time in hours")
-	fs.Parse(args)
+	err := fs.Parse(args)
+	if err != nil {
+		return err
+	}
 	args = fs.Args()
 	if len(args) < 1 {
 		return errors.New("file path required")

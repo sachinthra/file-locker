@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/crypto"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
@@ -28,7 +29,7 @@ func NewExportHandler(minioStorage *storage.MinIOStorage, pgStore *storage.Postg
 // HandleExportAll exports all user files as a ZIP archive
 func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return

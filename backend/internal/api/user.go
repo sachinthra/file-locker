@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,7 +34,7 @@ type ChangePasswordResponse struct {
 // HandleChangePassword changes user's password
 func (h *UserHandler) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return

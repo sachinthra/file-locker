@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/crypto"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
@@ -35,7 +36,7 @@ func (h *DownloadHandler) HandleDownload(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get userID from context (set by auth middleware)
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return

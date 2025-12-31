@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/crypto"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 )
@@ -40,7 +41,7 @@ type UploadResponse struct {
 
 func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(constants.UserIDKey).(string)
 	if !ok {
 		respondError(w, http.StatusUnauthorized, "User not authenticated")
 		return

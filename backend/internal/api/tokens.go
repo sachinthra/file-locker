@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/sachinthra/file-locker/backend/internal/storage"
@@ -30,7 +31,7 @@ type createTokenReq struct {
 
 // POST /api/auth/tokens
 func (h *TokensHandler) HandleCreateToken(w http.ResponseWriter, r *http.Request) {
-	uid, _ := r.Context().Value("userID").(string)
+	uid, _ := r.Context().Value(constants.UserIDKey).(string)
 	log.Printf("[tokens] %s %s CreateToken request by user=%s from=%s", r.Method, r.URL.Path, uid, r.RemoteAddr)
 	var req createTokenReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -80,7 +81,7 @@ func (h *TokensHandler) HandleCreateToken(w http.ResponseWriter, r *http.Request
 
 // GET /api/auth/tokens
 func (h *TokensHandler) HandleListTokens(w http.ResponseWriter, r *http.Request) {
-	uid, _ := r.Context().Value("userID").(string)
+	uid, _ := r.Context().Value(constants.UserIDKey).(string)
 	log.Printf("[tokens] %s %s ListTokens request by user=%s from=%s", r.Method, r.URL.Path, uid, r.RemoteAddr)
 	rows, err := h.DB.Query(`SELECT id, name, created_at, last_used_at, expires_at FROM personal_access_tokens WHERE user_id = $1 ORDER BY created_at DESC`, uid)
 	if err != nil {
@@ -118,7 +119,7 @@ func (h *TokensHandler) HandleListTokens(w http.ResponseWriter, r *http.Request)
 // DELETE /api/auth/tokens/{id}
 func (h *TokensHandler) HandleRevokeToken(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	uid, _ := r.Context().Value("userID").(string)
+	uid, _ := r.Context().Value(constants.UserIDKey).(string)
 	log.Printf("[tokens] %s %s RevokeToken request id=%s by user=%s from=%s", r.Method, r.URL.Path, id, uid, r.RemoteAddr)
 	res, err := h.DB.Exec(`DELETE FROM personal_access_tokens WHERE id = $1 AND user_id = $2`, id, uid)
 	if err != nil {
