@@ -119,9 +119,38 @@ features:
 
 ## 📚 API Documentation
 
-### Authentication
+The File Locker API is fully documented using OpenAPI 3.0 specification.
 
-#### Register User
+### 📖 Accessing Interactive Documentation
+
+**Swagger UI (Recommended):**
+- **Development:** http://localhost:5173/swagger/index.html
+- **Production:** http://localhost/swagger/index.html
+
+Interactive documentation with "Try it out" functionality to test all endpoints directly from your browser.
+
+**In-App API Docs:**
+- **Development:** http://localhost:5173/docs
+- **Production:** http://localhost/docs
+
+Integrated API documentation viewer within the File Locker application (accessible from user menu).
+
+**Raw OpenAPI Specification:**
+- **Development:** http://localhost:5173/api/v1/docs/openapi.yaml
+- **Production:** http://localhost/api/v1/docs/openapi.yaml
+
+Download the OpenAPI spec for import into Postman, Insomnia, or code generation tools.
+
+**OpenAPI File Location:**
+```
+backend/docs/openapi.yaml
+```
+
+### Quick API Examples
+
+#### Authentication
+
+##### Register User
 ```bash
 curl -X POST http://localhost:9010/api/v1/auth/register \
   -H "Content-Type: application/json" \
@@ -141,7 +170,7 @@ curl -X POST http://localhost:9010/api/v1/auth/register \
 }
 ```
 
-#### Login
+##### Login
 ```bash
 curl -X POST http://localhost:9010/api/v1/auth/login \
   -H "Content-Type: application/json" \

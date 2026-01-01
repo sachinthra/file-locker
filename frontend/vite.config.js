@@ -10,6 +10,10 @@ export default defineConfig({
         target: 'http://localhost:9010',
         changeOrigin: true,
       },
+      '/swagger': {
+        target: 'http://localhost:9010',
+        changeOrigin: true,
+      },
     },
   },
 });

@@ -9,6 +9,8 @@ import Admin from "./pages/Admin";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminFiles from "./pages/AdminFiles";
 import AdminUserDetails from "./pages/AdminUserDetails";
+import ApiDocs from "./pages/ApiDocs";
+import NotFound from "./pages/NotFound";
 import { getToken } from "./utils/auth";
 import { initTheme } from "./utils/theme";
 
@@ -76,6 +78,8 @@ export function App() {
             path="/admin/users/:userId"
             isAuthenticated={isAuthenticated}
           />
+          <ApiDocs path="/docs" />
+          <NotFound default />
         </Router>
       </main>
     </div>

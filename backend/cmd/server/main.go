@@ -178,13 +178,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// You also need to serve the static YAML file itself
-	r.Get("/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "docs/openapi.yaml")
-	})
-
+	// Swagger UI (accessible at /swagger/index.html)
 	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("http://localhost:9010/docs/openapi.yaml"), // pointing to your YAML
+		httpSwagger.URL("/api/v1/docs/openapi.yaml"),
 	))
 
 	appLogger.Info("Swagger documentation configured", slog.String("endpoint", "/swagger/index.html"))
@@ -195,6 +191,11 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Post("/auth/login", authHandler.HandleLogin)
 			r.Post("/auth/register", authHandler.HandleRegister)
+			
+			// Serve OpenAPI documentation
+			r.Get("/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+				http.ServeFile(w, r, "./docs/openapi.yaml")
+			})
 		})
 
 		// Protected routes (authentication required)

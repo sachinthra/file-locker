@@ -1,0 +1,47 @@
+.api-docs-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.api-docs-header {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: var(--card-background);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0;
+}
+
+.api-docs-header h1 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 2rem;
+}
+
+.api-docs-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+#swagger-ui {
+  background: var(--background-color);
+}
+
+/* Override Swagger UI styles for better integration */
+#swagger-ui .topbar {
+  display: none;
+}
+
+#swagger-ui .info {
+  margin-top: 0;
+}
+
+/* Dark mode compatibility */
+[data-theme="dark"] #swagger-ui {
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
+[data-theme="dark"] #swagger-ui img {
+  filter: invert(1) hue-rotate(180deg);
+}
