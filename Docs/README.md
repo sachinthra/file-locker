@@ -7,6 +7,8 @@ This directory contains comprehensive documentation for the File Locker project.
 ### Core Documentation
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and design decisions
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines for developers
+- [CLI_GUIDE.md](CLI_GUIDE.md) - Comprehensive CLI tool guide and reference
+- [CLI_QUICK_REFERENCE.md](CLI_QUICK_REFERENCE.md) - CLI quick reference card
 
 ### Deployment Guides
 Located in [`deployment/`](deployment/):
@@ -20,7 +22,8 @@ Located in [`deployment/`](deployment/):
 Located in [`history/`](history/):
 - [IMPLEMENTATION_COMPLETE.md](history/IMPLEMENTATION_COMPLETE.md) - Production distribution implementation summary
 - [ADMIN_DASHBOARD_COMPLETE.md](history/ADMIN_DASHBOARD_COMPLETE.md) - Admin dashboard implementation
-- [CLI_IMPLEMENTATION_SUMMARY.md](history/CLI_IMPLEMENTATION_SUMMARY.md) - CLI tool implementation details
+- [CLI_IMPLEMENTATION_SUMMARY.md](history/CLI_IMPLEMENTATION_SUMMARY.md) - CLI tool implementation details (original)
+- [CLI_COMPLETE.md](history/CLI_COMPLETE.md) - Complete CLI implementation with full API coverage
 - [frontend-implementation.md](history/frontend-implementation.md) - Frontend implementation summary
 - [Context.md](history/Context.md) - Complete technical summary and project context
 - [Design.md](history/Design.md) - Design decisions and patterns
@@ -61,5 +64,6 @@ Located in [`history/`](history/):
 - **"How do I deploy to production?"** → [deployment/PRODUCTION_QUICK_START.md](deployment/PRODUCTION_QUICK_START.md)
 - **"How does the system work?"** → [ARCHITECTURE.md](ARCHITECTURE.md)
 - **"What API endpoints are available?"** → [../backend/docs/openapi.yaml](../backend/docs/openapi.yaml)
+- **"How do I use the CLI tool?"** → [CLI_GUIDE.md](CLI_GUIDE.md)
 - **"How was this feature implemented?"** → Check `history/` folder
 - **"How do I contribute?"** → [CONTRIBUTING.md](CONTRIBUTING.md)

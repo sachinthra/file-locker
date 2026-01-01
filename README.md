@@ -255,6 +255,30 @@ make test-backend
 
 ---
 
+## 🖥️ CLI Tool
+
+File Locker includes a powerful command-line interface for automation and scripting:
+
+```bash
+# Build the CLI
+cd backend
+go build -o fl cmd/cli/main.go
+
+# Login and use
+fl login --token your-token
+fl ls                           # List files
+fl upload document.pdf          # Upload file
+fl download file-id             # Download file
+fl search "project files"       # Search files
+fl admin stats                  # Admin commands
+
+# See full guide
+```
+
+**📖 Complete CLI Documentation:** [Docs/CLI_GUIDE.md](Docs/CLI_GUIDE.md)
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](https://www.google.com/search?q=CONTRIBUTING.md) for details on code style and the pull request process.
