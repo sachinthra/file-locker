@@ -18,11 +18,14 @@ export default function Admin({ isAuthenticated }) {
   const [recentFiles, setRecentFiles] = useState([]);
   const [settings, setSettings] = useState({});
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [showUserSelectionModal, setShowUserSelectionModal] = useState(false);
+  const [selectedAnnouncementUsers, setSelectedAnnouncementUsers] = useState([]);
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     message: "",
     type: "info",
     target_type: "all",
+    target_user_ids: [],
   });
   const [storageAnalysis, setStorageAnalysis] = useState(null);
   const [analyzingStorage, setAnalyzingStorage] = useState(false);
@@ -185,7 +188,9 @@ export default function Admin({ isAuthenticated }) {
         message: "",
         type: "info",
         target_type: "all",
+        target_user_ids: [],
       });
+      setSelectedAnnouncementUsers([]);
       setShowAnnouncementForm(false);
       loadData(); // Reload announcements
     } catch (err) {
@@ -668,20 +673,70 @@ export default function Admin({ isAuthenticated }) {
                   <select
                     class="input"
                     value={newAnnouncement.target_type}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setNewAnnouncement({
                         ...newAnnouncement,
                         target_type: e.target.value,
-                      })
-                    }
+                      });
+                      if (e.target.value === "specific_users") {
+                        setShowUserSelectionModal(true);
+                      }
+                    }}
                   >
                     <option value="all">All Users</option>
                     <option value="specific_users">
-                      Specific Users (Future)
+                      Specific Users
                     </option>
                   </select>
                 </div>
               </div>
+
+              {newAnnouncement.target_type === "specific_users" && (
+                <div style="margin-bottom: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <label style="font-weight: 500;">
+                      Selected Users ({selectedAnnouncementUsers.length})
+                    </label>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      onClick={() => setShowUserSelectionModal(true)}
+                    >
+                      Select Users
+                    </button>
+                  </div>
+                  {selectedAnnouncementUsers.length > 0 && (
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 6px;">
+                      {selectedAnnouncementUsers.map((userId) => {
+                        const selectedUser = users.find((u) => u.id === userId);
+                        return selectedUser ? (
+                          <div
+                            key={userId}
+                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem; background: var(--primary-color); color: white; border-radius: 4px; font-size: 0.875rem;"
+                          >
+                            <span>{selectedUser.username}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSelected = selectedAnnouncementUsers.filter((id) => id !== userId);
+                                setSelectedAnnouncementUsers(newSelected);
+                                setNewAnnouncement({
+                                  ...newAnnouncement,
+                                  target_user_ids: newSelected,
+                                });
+                              }}
+                              style="background: none; border: none; color: white; cursor: pointer; padding: 0; display: flex; align-items: center;"
+                              title="Remove user"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button
@@ -1445,6 +1500,111 @@ export default function Admin({ isAuthenticated }) {
           </div>
         )}
       </div>
+
+      {/* User Selection Modal for Announcements */}
+      {showUserSelectionModal && (
+        <div
+          style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;"
+          onClick={() => setShowUserSelectionModal(false)}
+        >
+          <div
+            style="background: var(--bg-primary); border-radius: 12px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h3 style="margin: 0; font-size: 1.25rem;">Select Users for Announcement</h3>
+              <button
+                onClick={() => setShowUserSelectionModal(false)}
+                style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const allUserIds = users.map((u) => u.id);
+                    setSelectedAnnouncementUsers(allUserIds);
+                  }}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  onClick={() => setSelectedAnnouncementUsers([])}
+                >
+                  Clear All
+                </button>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                {users.map((u) => (
+                  <label
+                    key={u.id}
+                    style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: background 0.2s;"
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedAnnouncementUsers.includes(u.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedAnnouncementUsers([...selectedAnnouncementUsers, u.id]);
+                        } else {
+                          setSelectedAnnouncementUsers(selectedAnnouncementUsers.filter((id) => id !== u.id));
+                        }
+                      }}
+                      style="width: 18px; height: 18px; cursor: pointer;"
+                    />
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-color); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; flex-shrink: 0;">
+                      {u.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="flex: 1;">
+                      <div style="font-weight: 500;">{u.username}</div>
+                      <div style="font-size: 0.875rem; color: var(--text-secondary);">{u.email}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                      <span style={`padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; ${u.role === 'admin' ? 'background: var(--primary-color); color: white;' : 'background: var(--bg-secondary);'}`}>
+                        {u.role}
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                onClick={() => setShowUserSelectionModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                onClick={() => {
+                  setNewAnnouncement({
+                    ...newAnnouncement,
+                    target_user_ids: selectedAnnouncementUsers,
+                  });
+                  setShowUserSelectionModal(false);
+                }}
+              >
+                Confirm ({selectedAnnouncementUsers.length} selected)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

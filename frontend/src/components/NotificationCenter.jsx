@@ -1,4 +1,6 @@
 import { useState, useEffect } from "preact/hooks";
+import api from "../utils/api";
+import { getToken } from "../utils/auth";
 
 export default function NotificationCenter({
   notifications,
@@ -6,6 +8,7 @@ export default function NotificationCenter({
   onClear,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -18,7 +21,57 @@ export default function NotificationCenter({
     return () => document.removeEventListener("click", handleClickOutside);
   }, [isOpen]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  useEffect(() => {
+    if (getToken()) {
+      loadAnnouncements();
+    }
+  }, []);
+
+  const loadAnnouncements = async () => {
+    try {
+      const response = await api.get("/announcements");
+      const allAnnouncements = response.data?.announcements || [];
+      const dismissed = getDismissedAnnouncements();
+      setAnnouncements(allAnnouncements.filter((a) => !dismissed.includes(a.id)));
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        console.error("Failed to load announcements:", err);
+      }
+    }
+  };
+
+  const getDismissedAnnouncements = () => {
+    try {
+      const dismissed = localStorage.getItem("dismissedAnnouncements");
+      return dismissed ? JSON.parse(dismissed) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const markAsDismissed = (announcementId) => {
+    try {
+      const dismissed = getDismissedAnnouncements();
+      if (!dismissed.includes(announcementId)) {
+        dismissed.push(announcementId);
+        localStorage.setItem("dismissedAnnouncements", JSON.stringify(dismissed));
+      }
+    } catch (err) {
+      console.error("Failed to save dismissed announcement:", err);
+    }
+  };
+
+  const handleDismissAnnouncement = async (announcementId) => {
+    try {
+      await api.post(`/announcements/${announcementId}/dismiss`);
+      markAsDismissed(announcementId);
+      setAnnouncements(announcements.filter((a) => a.id !== announcementId));
+    } catch (err) {
+      console.error("Failed to dismiss announcement:", err);
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length + announcements.length;
 
   const getIcon = (type) => {
     switch (type) {
@@ -126,7 +179,7 @@ export default function NotificationCenter({
         <div class="notification-dropdown">
           <div class="notification-header">
             <h3>Notifications</h3>
-            {notifications.length > 0 && (
+            {(notifications.length > 0 || announcements.length > 0) && (
               <button class="btn-link" onClick={onClearAll}>
                 Clear all
               </button>
@@ -134,7 +187,7 @@ export default function NotificationCenter({
           </div>
 
           <div class="notification-list">
-            {notifications.length === 0 ? (
+            {notifications.length === 0 && announcements.length === 0 ? (
               <div class="notification-empty">
                 <svg
                   width="48"
@@ -150,7 +203,53 @@ export default function NotificationCenter({
                 <p>No notifications</p>
               </div>
             ) : (
-              notifications.map((notification) => (
+              <>
+                {announcements.map((announcement) => {
+                  const typeColors = {
+                    info: "#3b82f6",
+                    warning: "#f59e0b",
+                    critical: "#ef4444",
+                  };
+                  return (
+                    <div
+                      key={announcement.id}
+                      class="notification-item unread"
+                      style={`border-left: 3px solid ${typeColors[announcement.type] || typeColors.info};`}
+                    >
+                      <div class="notification-icon">
+                        {getIcon(announcement.type)}
+                      </div>
+                      <div class="notification-content">
+                        <p class="notification-message" style="font-weight: 600;">
+                          {announcement.title}
+                        </p>
+                        <p class="notification-message" style="font-size: 0.85rem; margin-top: 0.25rem;">
+                          {announcement.message}
+                        </p>
+                        <span class="notification-time">
+                          {formatTime(announcement.created_at)}
+                        </span>
+                      </div>
+                      <button
+                        class="notification-close"
+                        onClick={() => handleDismissAnnouncement(announcement.id)}
+                        title="Dismiss"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+                {notifications.map((notification) => (
                 <div
                   key={notification.id}
                   class={`notification-item ${!notification.read ? "unread" : ""}`}
@@ -181,7 +280,8 @@ export default function NotificationCenter({
                     </svg>
                   </button>
                 </div>
-              ))
+              ))}
+              </>
             )}
           </div>
         </div>

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/lib/pq"
 	"github.com/sachinthra/file-locker/backend/internal/constants"
 	"github.com/sachinthra/file-locker/backend/internal/storage"
 	"golang.org/x/crypto/bcrypt"
@@ -1150,14 +1151,14 @@ func (h *AdminHandler) HandleCreateAnnouncement(w http.ResponseWriter, r *http.R
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id, created_at
 		`
-		args = []interface{}{req.Title, req.Message, req.Type, req.TargetType, req.TargetUserIDs, *req.ExpiresAt, adminID}
+		args = []interface{}{req.Title, req.Message, req.Type, req.TargetType, pq.Array(req.TargetUserIDs), *req.ExpiresAt, adminID}
 	} else {
 		query = `
 			INSERT INTO announcements (title, message, type, target_type, target_user_ids, created_by)
 			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING id, created_at
 		`
-		args = []interface{}{req.Title, req.Message, req.Type, req.TargetType, req.TargetUserIDs, adminID}
+		args = []interface{}{req.Title, req.Message, req.Type, req.TargetType, pq.Array(req.TargetUserIDs), adminID}
 	}
 
 	var announcementID string
