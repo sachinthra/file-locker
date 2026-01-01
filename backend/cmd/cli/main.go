@@ -599,11 +599,11 @@ func cmdSearch(args []string) error {
 
 	var result struct {
 		Files []struct {
-			ID        string     `json:"file_id"`
-			FileName  string     `json:"file_name"`
-			Size      int64      `json:"size"`
-			CreatedAt time.Time  `json:"created_at"`
-			Tags      []string   `json:"tags"`
+			ID        string    `json:"file_id"`
+			FileName  string    `json:"file_name"`
+			Size      int64     `json:"size"`
+			CreatedAt time.Time `json:"created_at"`
+			Tags      []string  `json:"tags"`
 		} `json:"files"`
 		Count int `json:"count"`
 	}
@@ -1541,9 +1541,9 @@ func cmdAdminStorageCleanup() error {
 	}
 
 	var result struct {
-		Message        string `json:"message"`
-		FilesDeleted   int    `json:"files_deleted"`
-		SpaceFreedBytes int64 `json:"space_freed_bytes"`
+		Message         string `json:"message"`
+		FilesDeleted    int    `json:"files_deleted"`
+		SpaceFreedBytes int64  `json:"space_freed_bytes"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -1742,7 +1742,7 @@ func printUsage() {
 	fmt.Println("  logout                             Logout and clear credentials")
 	fmt.Println("  me                                 Show current user info")
 	fmt.Println("  whoami                             Alias for 'me'")
-	
+
 	fmt.Println("\n📁 File Operations:")
 	fmt.Println("  ls [--json]                        List files (table or JSON)")
 	fmt.Println("  upload <file> [--tags t1,t2]       Upload file with optional tags")
@@ -1753,20 +1753,20 @@ func printUsage() {
 	fmt.Println("  export [-o output.zip]             Export all files as zip")
 	fmt.Println("  update <file_id> --tags t1,t2      Update file metadata")
 	fmt.Println("         <file_id> --name newname    Rename file")
-	
+
 	fmt.Println("\n🔑 Personal Access Tokens:")
 	fmt.Println("  tokens list                        List all PATs")
 	fmt.Println("  tokens create <name> [--expire]    Create new PAT")
 	fmt.Println("  tokens revoke <token_id>           Revoke PAT")
-	
+
 	fmt.Println("\n👤 User Management:")
 	fmt.Println("  password                           Change password (interactive)")
 	fmt.Println("  password --old <old> --new <new>   Change password")
-	
+
 	fmt.Println("\n📢 Announcements:")
 	fmt.Println("  announcements                      List announcements")
 	fmt.Println("  announcements dismiss <id>         Dismiss announcement")
-	
+
 	fmt.Println("\n🛡️  Admin Commands:")
 	fmt.Println("  admin stats                        System statistics")
 	fmt.Println("  admin users [--status pending]     List users")
@@ -1787,7 +1787,7 @@ func printUsage() {
 	fmt.Println("  admin announcements                List all announcements")
 	fmt.Println("  admin announcements create         Create announcement")
 	fmt.Println("  admin announcements delete <id>    Delete announcement")
-	
+
 	fmt.Println("\n📖 Examples:")
 	fmt.Println("  fl login --token fl_abc123...")
 	fmt.Println("  fl upload document.pdf --tags work,important --expire 72")
