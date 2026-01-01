@@ -27,9 +27,6 @@ export default function Login({ setIsAuthenticated }) {
 
       saveToken(token);
 
-      // Small delay to ensure token is saved before next request
-      await new Promise(resolve => setTimeout(resolve, 50));
-
       // Fetch user info including role
       const userResponse = await getMe();
       saveUser(userResponse.data);
