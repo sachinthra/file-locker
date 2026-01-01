@@ -272,5 +272,5 @@ This project is licensed under the MIT License - see the [LICENSE](https://www.g
 ---
 
 <div align="center">
-Made with 🔐 by [Your Name]
+Made with 🔐 by Sachinthra
 </div>
