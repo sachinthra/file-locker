@@ -135,6 +135,237 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  
+  /auth/me:
+    get:
+      summary: Get current user info
+      description: Returns authenticated user's profile information
+      tags:
+        - Authentication
+      responses:
+        200:
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        401:
+          description: Unauthorized (missing, expired, or invalid token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /announcements:
+    get:
+      summary: Get all announcements
+      description: Returns all active announcements for the authenticated user
+      tags:
+        - Announcements
+      responses:
+        200:
+          description: List of announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Announcement'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /announcements/{id}/dismiss:
+    post:
+      summary: Dismiss an announcement
+      description: Marks an announcement as dismissed for the current user
+      tags:
+        - Announcements
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Announcement ID to dismiss
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        200:
+          description: Announcement dismissed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Announcement dismissed"
+        400:
+          description: Invalid announcement ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: Announcement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/announcements:
+    get:
+      summary: Get all announcements (admin)
+      description: Returns all announcements including inactive ones. Admin only.
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: List of all announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Announcement'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: Forbidden (admin access required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    post:
+      summary: Create new announcement (admin)
+      description: Creates a new announcement. Admin only.
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, message, severity]
+              properties:
+                title:
+                  type: string
+                  example: "System Maintenance"
+                message:
+                  type: string
+                  example: "Scheduled maintenance window on Sunday"
+                severity:
+                  type: string
+                  enum: [info, warning, error]
+                  example: "warning"
+      responses:
+        201:
+          description: Announcement created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        400:
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: Forbidden (admin access required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/announcements/{id}:
+    delete:
+      summary: Delete announcement (admin)
+      description: Permanently deletes an announcement. Admin only.
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Announcement ID to delete
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        200:
+          description: Announcement deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Announcement deleted"
+        400:
+          description: Invalid announcement ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: Forbidden (admin access required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: Announcement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /upload:
     post:
@@ -592,3 +823,72 @@ components:
           type: integer
           description: Total number of files
           example: 10
+    
+    UserInfo:
+      type: object
+      required:
+        - id
+        - username
+        - email
+        - role
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        username:
+          type: string
+          description: Username
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john@example.com"
+        role:
+          type: string
+          enum: [user, admin]
+          description: User role
+          example: "user"
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2025-01-01T10:00:00Z"
+    
+    Announcement:
+      type: object
+      required:
+        - id
+        - title
+        - message
+        - severity
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique announcement identifier
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        title:
+          type: string
+          description: Announcement title
+          example: "System Maintenance"
+        message:
+          type: string
+          description: Announcement message/body
+          example: "Scheduled maintenance window on Sunday from 2AM-4AM EST"
+        severity:
+          type: string
+          enum: [info, warning, error]
+          description: Severity level of the announcement
+          example: "warning"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-12-28T10:00:00Z"
+        dismissed:
+          type: boolean
+          description: Whether current user has dismissed this announcement
+          example: false
