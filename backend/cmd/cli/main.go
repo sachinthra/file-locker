@@ -109,6 +109,33 @@ func getBaseURL() string {
 	return apiBase
 }
 
+func isAdmin() bool {
+	token, err := loadToken()
+	if err != nil {
+		return false
+	}
+
+	resp, err := doRequest("GET", "/auth/me", token, nil, "")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return false
+	}
+
+	var user struct {
+		Role string `json:"role"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return false
+	}
+
+	return user.Role == "admin"
+}
+
 func doRequest(method, path, token string, body io.Reader, contentType string) (*http.Response, error) {
 	baseURL := getBaseURL()
 
@@ -214,7 +241,7 @@ func cmdLogin(args []string) error {
 	return errors.New("either --token or both -u and -p are required")
 }
 
-func cmdLs(jsonOut bool) error {
+func cmdLs(jsonOut bool, wideOut bool) error {
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -254,12 +281,17 @@ func cmdLs(jsonOut bool) error {
 
 	// Use tabwriter for clean table formatting
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	_, _ = fmt.Fprintln(w, "ID\tNAME\tSIZE\tUPLOADED\tEXPIRES")
-	_, _ = fmt.Fprintln(w, "---\t----\t----\t--------\t-------")
+	if wideOut {
+		_, _ = fmt.Fprintln(w, "FILE ID\tNAME\tSIZE\tUPLOADED\tEXPIRES")
+		_, _ = fmt.Fprintln(w, "-------\t----\t----\t--------\t-------")
+	} else {
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tSIZE\tUPLOADED\tEXPIRES")
+		_, _ = fmt.Fprintln(w, "---\t----\t----\t--------\t-------")
+	}
 
 	for _, f := range parsed.Files {
 		id := f.ID
-		if len(id) > 8 {
+		if !wideOut && len(id) > 8 {
 			id = id[:8] + "..."
 		}
 
@@ -597,10 +629,19 @@ func cmdMe() error {
 }
 
 func cmdSearch(args []string) error {
-	if len(args) < 1 {
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "output json")
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	remainingArgs := fs.Args()
+	if len(remainingArgs) < 1 {
 		return errors.New("search query required")
 	}
-	query := args[0]
+	query := remainingArgs[0]
+
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -636,9 +677,15 @@ func cmdSearch(args []string) error {
 		return nil
 	}
 
+	if *jsonOut {
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
+		return nil
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "ID\tNAME\tSIZE\tTAGS\n")
-	fmt.Fprintf(w, "---\t----\t----\t----\n")
+	_, _ = fmt.Fprintf(w, "ID\tNAME\tSIZE\tTAGS\n")
+	_, _ = fmt.Fprintf(w, "---\t----\t----\t----\n")
 
 	for _, f := range result.Files {
 		id := f.ID
@@ -646,9 +693,9 @@ func cmdSearch(args []string) error {
 			id = id[:8] + "..."
 		}
 		tags := strings.Join(f.Tags, ", ")
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, f.FileName, humanize.Bytes(uint64(f.Size)), tags)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, f.FileName, humanize.Bytes(uint64(f.Size)), tags)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	fmt.Printf("\nFound %d file(s)\n", result.Count)
 	return nil
@@ -761,8 +808,10 @@ func cmdTokens(args []string) error {
 	case "list":
 		fs := flag.NewFlagSet("token_list", flag.ContinueOnError)
 		jsonOut := fs.Bool("json", false, "output json")
+		wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
+		fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
 		fs.Parse(args[1:])
-		return cmdTokensList(*jsonOut)
+		return cmdTokensList(*jsonOut, *wideOut)
 	case "create":
 		return cmdTokensCreate(args[1:])
 	case "revoke":
@@ -772,7 +821,7 @@ func cmdTokens(args []string) error {
 	}
 }
 
-func cmdTokensList(jsonOut bool) error {
+func cmdTokensList(jsonOut bool, wideOut bool) error {
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -814,12 +863,17 @@ func cmdTokensList(jsonOut bool) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "ID\tNAME\tCREATED\tEXPIRES\tLAST USED\n")
-	fmt.Fprintf(w, "---\t----\t-------\t-------\t---------\n")
+	if wideOut {
+		_, _ = fmt.Fprintf(w, "TOKEN ID\tNAME\tCREATED\tEXPIRES\tLAST USED\n")
+		_, _ = fmt.Fprintf(w, "--------\t----\t-------\t-------\t---------\n")
+	} else {
+		_, _ = fmt.Fprintf(w, "ID\tNAME\tCREATED\tEXPIRES\tLAST USED\n")
+		_, _ = fmt.Fprintf(w, "---\t----\t-------\t-------\t---------\n")
+	}
 
 	for _, t := range result.Tokens {
 		id := t.ID
-		if len(id) > 8 {
+		if !wideOut && len(id) > 8 {
 			id = id[:8] + "..."
 		}
 		created := humanize.Time(t.CreatedAt)
@@ -831,9 +885,9 @@ func cmdTokensList(jsonOut bool) error {
 		if t.LastUsed != nil {
 			lastUsed = humanize.Time(*t.LastUsed)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, t.Name, created, expires, lastUsed)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, t.Name, created, expires, lastUsed)
 	}
-	w.Flush()
+	_ = w.Flush()
 	return nil
 }
 
@@ -926,7 +980,10 @@ func cmdPassword(args []string) error {
 	fs := flag.NewFlagSet("password", flag.ContinueOnError)
 	old := fs.String("old", "", "old password")
 	new := fs.String("new", "", "new password")
-	fs.Parse(args)
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	if *old == "" || *new == "" {
 		return errors.New("both --old and --new passwords required")
@@ -1051,10 +1108,16 @@ func cmdAnnouncementsDismiss(args []string) error {
 
 func cmdAdmin(args []string) error {
 	if len(args) < 1 {
-		return errors.New("admin subcommand required: stats, users, settings, files, storage, logs, announcements")
+		printAdminHelp()
+		return nil
 	}
 
 	subcmd := args[0]
+	if subcmd == "help" {
+		printAdminHelp()
+		return nil
+	}
+
 	switch subcmd {
 	case "stats":
 		return cmdAdminStats()
@@ -1146,7 +1209,13 @@ func cmdAdminUsers(args []string) error {
 func cmdAdminUsersList(args []string) error {
 	fs := flag.NewFlagSet("users", flag.ContinueOnError)
 	status := fs.String("status", "", "filter by status: active, inactive, pending")
-	fs.Parse(args)
+	jsonOut := fs.Bool("json", false, "output json")
+	wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
+	fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	token, err := loadToken()
 	if err != nil {
@@ -1181,18 +1250,29 @@ func cmdAdminUsersList(args []string) error {
 		return err
 	}
 
+	if *jsonOut {
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
+		return nil
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "ID\tUSERNAME\tEMAIL\tROLE\n")
-	fmt.Fprintf(w, "---\t--------\t-----\t----\n")
+	if *wideOut {
+		_, _ = fmt.Fprintf(w, "USER ID\tUSERNAME\tEMAIL\tROLE\n")
+		_, _ = fmt.Fprintf(w, "-------\t--------\t-----\t----\n")
+	} else {
+		_, _ = fmt.Fprintf(w, "ID\tUSERNAME\tEMAIL\tROLE\n")
+		_, _ = fmt.Fprintf(w, "---\t--------\t-----\t----\n")
+	}
 
 	for _, u := range result.Users {
 		id := u.ID
-		if len(id) > 8 {
+		if !*wideOut && len(id) > 8 {
 			id = id[:8] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, u.Username, u.Email, u.Role)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, u.Username, u.Email, u.Role)
 	}
-	w.Flush()
+	_ = w.Flush()
 	return nil
 }
 
@@ -1449,13 +1529,23 @@ func cmdAdminSettingsUpdate(key, value string) error {
 }
 
 func cmdAdminFiles(args []string) error {
-	if len(args) >= 2 && args[0] == "delete" {
-		return cmdAdminFilesDelete(args[1])
+	fs := flag.NewFlagSet("files", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "output json")
+	wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
+	fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
 	}
-	return cmdAdminFilesList()
+
+	remainingArgs := fs.Args()
+	if len(remainingArgs) >= 2 && remainingArgs[0] == "delete" {
+		return cmdAdminFilesDelete(remainingArgs[1])
+	}
+	return cmdAdminFilesList(*jsonOut, *wideOut)
 }
 
-func cmdAdminFilesList() error {
+func cmdAdminFilesList(jsonOut bool, wideOut bool) error {
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -1483,18 +1573,29 @@ func cmdAdminFilesList() error {
 		return err
 	}
 
+	if jsonOut {
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
+		return nil
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "ID\tFILENAME\tSIZE\n")
-	fmt.Fprintf(w, "---\t--------\t----\n")
+	if wideOut {
+		_, _ = fmt.Fprintf(w, "FILE ID\tFILENAME\tSIZE\n")
+		_, _ = fmt.Fprintf(w, "-------\t--------\t----\n")
+	} else {
+		_, _ = fmt.Fprintf(w, "ID\tFILENAME\tSIZE\n")
+		_, _ = fmt.Fprintf(w, "---\t--------\t----\n")
+	}
 
 	for _, f := range result.Files {
 		id := f.ID
-		if len(id) > 8 {
+		if !wideOut && len(id) > 8 {
 			id = id[:8] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", id, f.FileName, humanize.Bytes(uint64(f.Size)))
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", id, f.FileName, humanize.Bytes(uint64(f.Size)))
 	}
-	w.Flush()
+	_ = w.Flush()
 	return nil
 }
 
@@ -1607,7 +1708,10 @@ func cmdAdminLogs(args []string) error {
 	fs := flag.NewFlagSet("logs", flag.ContinueOnError)
 	action := fs.String("action", "", "filter by action")
 	userID := fs.String("user_id", "", "filter by user id")
-	fs.Parse(args)
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	token, err := loadToken()
 	if err != nil {
@@ -1659,22 +1763,32 @@ func cmdAdminLogs(args []string) error {
 }
 
 func cmdAdminAnnouncements(args []string) error {
-	if len(args) == 0 {
-		return cmdAdminAnnouncementsList()
+	fs := flag.NewFlagSet("announcements", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "output json")
+	wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
+	fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	subcmd := args[0]
+	remainingArgs := fs.Args()
+	if len(remainingArgs) == 0 {
+		return cmdAdminAnnouncementsList(*jsonOut, *wideOut)
+	}
+
+	subcmd := remainingArgs[0]
 	switch subcmd {
 	case "create":
-		return cmdAdminAnnouncementsCreate(args[1:])
+		return cmdAdminAnnouncementsCreate(remainingArgs[1:])
 	case "delete":
-		return cmdAdminAnnouncementsDelete(args[1:])
+		return cmdAdminAnnouncementsDelete(remainingArgs[1:])
 	default:
 		return fmt.Errorf("unknown announcements subcommand: %s", subcmd)
 	}
 }
 
-func cmdAdminAnnouncementsList() error {
+func cmdAdminAnnouncementsList(jsonOut bool, wideOut bool) error {
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -1701,18 +1815,29 @@ func cmdAdminAnnouncementsList() error {
 		return err
 	}
 
+	if jsonOut {
+		b, _ := json.Marshal(announcements)
+		fmt.Println(string(b))
+		return nil
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "ID\tSEVERITY\tTITLE\n")
-	fmt.Fprintf(w, "---\t--------\t-----\n")
+	if wideOut {
+		_, _ = fmt.Fprintf(w, "ANNOUNCEMENT ID\tSEVERITY\tTITLE\n")
+		_, _ = fmt.Fprintf(w, "---------------\t--------\t-----\n")
+	} else {
+		_, _ = fmt.Fprintf(w, "ID\tSEVERITY\tTITLE\n")
+		_, _ = fmt.Fprintf(w, "---\t--------\t-----\n")
+	}
 
 	for _, a := range announcements {
 		id := a.ID
-		if len(id) > 8 {
+		if !wideOut && len(id) > 8 {
 			id = id[:8] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", id, a.Severity, a.Title)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", id, a.Severity, a.Title)
 	}
-	w.Flush()
+	_ = w.Flush()
 	return nil
 }
 
@@ -1721,7 +1846,10 @@ func cmdAdminAnnouncementsCreate(args []string) error {
 	title := fs.String("title", "", "announcement title")
 	message := fs.String("message", "", "announcement message")
 	severity := fs.String("severity", "info", "severity: info, warning, error")
-	fs.Parse(args)
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	if *title == "" || *message == "" {
 		return errors.New("--title and --message required")
@@ -1780,6 +1908,44 @@ func cmdAdminAnnouncementsDelete(args []string) error {
 	return nil
 }
 
+func printAdminHelp() {
+	fmt.Println("fl admin - Admin Commands")
+	fmt.Println("\n📊 System Management:")
+	fmt.Println("  admin stats                        System statistics")
+	fmt.Println("\n👥 User Management:")
+	fmt.Println("  admin users [--status pending]     List users (supports --json, --wide/-w)")
+	fmt.Println("  admin users approve <id>           Approve user")
+	fmt.Println("  admin users reject <id>            Reject user")
+	fmt.Println("  admin users delete <id>            Delete user")
+	fmt.Println("  admin users <id> status <active>   Update user status")
+	fmt.Println("  admin users <id> role <admin>      Update user role")
+	fmt.Println("  admin users <id> reset-password    Reset user password")
+	fmt.Println("  admin users <id> logout            Force logout user")
+	fmt.Println("\n⚙️  Settings:")
+	fmt.Println("  admin settings                     View system settings")
+	fmt.Println("  admin settings <key> <value>       Update setting")
+	fmt.Println("\n📁 File Management:")
+	fmt.Println("  admin files [--json] [--wide/-w]   List all files")
+	fmt.Println("  admin files delete <id>            Delete any file")
+	fmt.Println("\n💾 Storage:")
+	fmt.Println("  admin storage analyze              Analyze storage usage")
+	fmt.Println("  admin storage cleanup              Cleanup orphaned files")
+	fmt.Println("\n📜 Audit Logs:")
+	fmt.Println("  admin logs [--action] [--user_id]  View audit logs")
+	fmt.Println("\n📢 Announcements:")
+	fmt.Println("  admin announcements [--json] [-w]  List all announcements")
+	fmt.Println("  admin announcements create         Create announcement")
+	fmt.Println("          --title <title> --message <msg> [--severity info|warning|error]")
+	fmt.Println("  admin announcements delete <id>    Delete announcement")
+	fmt.Println("\n📖 Examples:")
+	fmt.Println("  fl admin stats")
+	fmt.Println("  fl admin users --status pending --wide")
+	fmt.Println("  fl admin files --json")
+	fmt.Println("  fl admin storage cleanup")
+	fmt.Println("  fl admin logs --action upload")
+	fmt.Println("  fl admin announcements create --title \"Maintenance\" --message \"Scheduled downtime\" --severity warning")
+}
+
 func printUsage() {
 	fmt.Println("fl - File Locker CLI")
 	fmt.Println("\n🔐 Authentication:")
@@ -1791,57 +1957,57 @@ func printUsage() {
 	fmt.Println("  whoami                             Alias for 'me'")
 
 	fmt.Println("\n📁 File Operations:")
-	fmt.Println("  ls [--json]                        List files (table or JSON)")
+	fmt.Println("  ls [--json] [--wide/-w]            List files (table, JSON, or wide format)")
 	fmt.Println("  upload <file> [--tags t1,t2]       Upload file with optional tags")
 	fmt.Println("                [--expire 24]        Set expiration in hours")
 	fmt.Println("  download <file_id> [-o filename]   Download file")
 	fmt.Println("  rm <file_id>                       Delete file")
-	fmt.Println("  search <query>                     Search files by name or tags")
+	fmt.Println("  search <query> [--json]            Search files by name or tags")
 	fmt.Println("  export [-o output.zip]             Export all files as zip")
 	fmt.Println("  update <file_id> --tags t1,t2      Update file metadata")
 	fmt.Println("         <file_id> --name newname    Rename file")
 
 	fmt.Println("\n🔑 Personal Access Tokens:")
-	fmt.Println("  tokens list [--json]               List all PATs (table or JSON)")
+	fmt.Println("  tokens list [--json] [--wide/-w]   List all PATs (supports wide format)")
 	fmt.Println("  tokens create <name> [--expire]    Create new PAT")
 	fmt.Println("  tokens revoke <token_id>           Revoke PAT")
 
 	fmt.Println("\n👤 User Management:")
-	fmt.Println("  password                           Change password (interactive)")
 	fmt.Println("  password --old <old> --new <new>   Change password")
 
 	fmt.Println("\n📢 Announcements:")
 	fmt.Println("  announcements                      List announcements")
 	fmt.Println("  announcements dismiss <id>         Dismiss announcement")
 
-	fmt.Println("\n🛡️  Admin Commands:")
-	fmt.Println("  admin stats                        System statistics")
-	fmt.Println("  admin users [--status pending]     List users")
-	fmt.Println("  admin users approve <id>           Approve user")
-	fmt.Println("  admin users reject <id>            Reject user")
-	fmt.Println("  admin users delete <id>            Delete user")
-	fmt.Println("  admin users <id> status <active>   Update user status")
-	fmt.Println("  admin users <id> role <admin>      Update user role")
-	fmt.Println("  admin users <id> reset-password    Reset user password")
-	fmt.Println("  admin users <id> logout            Force logout user")
-	fmt.Println("  admin settings                     View system settings")
-	fmt.Println("  admin settings <key> <value>       Update setting")
-	fmt.Println("  admin files                        List all files")
-	fmt.Println("  admin files delete <id>            Delete any file")
-	fmt.Println("  admin storage analyze              Analyze storage usage")
-	fmt.Println("  admin storage cleanup              Cleanup orphaned files")
-	fmt.Println("  admin logs [--action] [--user_id]  View audit logs")
-	fmt.Println("  admin announcements                List all announcements")
-	fmt.Println("  admin announcements create         Create announcement")
-	fmt.Println("  admin announcements delete <id>    Delete announcement")
+	// Conditionally show admin section
+	if isAdmin() {
+		fmt.Println("\n🛡️  Admin Commands:")
+		fmt.Println("  admin help                         Show detailed admin commands")
+		fmt.Println("  admin stats                        System statistics")
+		fmt.Println("  admin users                        User management")
+		fmt.Println("  admin files                        File management")
+		fmt.Println("  admin storage                      Storage operations")
+		fmt.Println("  admin logs                         Audit logs")
+		fmt.Println("  admin announcements                Announcement management")
+		fmt.Println("  admin settings                     System settings")
+	} else {
+		fmt.Println("\n🛡️  Admin: Login as admin to access admin commands")
+	}
 
 	fmt.Println("\n📖 Examples:")
 	fmt.Println("  fl login --token fl_abc123...")
+	fmt.Println("  fl ls --wide                       # Show full file IDs")
 	fmt.Println("  fl upload document.pdf --tags work,important --expire 72")
-	fmt.Println("  fl search \"project files\"")
+	fmt.Println("  fl search \"project files\" --json")
+	fmt.Println("  fl tokens list --wide              # Show full token IDs")
 	fmt.Println("  fl tokens create \"CI/CD Pipeline\"")
-	fmt.Println("  fl admin users --status pending")
-	fmt.Println("  fl admin storage cleanup")
+	if isAdmin() {
+		fmt.Println("  fl admin users --status pending --wide")
+		fmt.Println("  fl admin storage cleanup")
+	}
+
+	fmt.Println("\n💡 Tip: Use --wide or -w to see full IDs (useful for copy-paste)")
+	fmt.Println("💡 Tip: Flags can be placed before or after arguments")
 }
 
 func main() {
@@ -1859,8 +2025,10 @@ func main() {
 	case "ls":
 		fs := flag.NewFlagSet("ls", flag.ContinueOnError)
 		jsonOut := fs.Bool("json", false, "output json")
+		wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
+		fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
 		fs.Parse(os.Args[2:])
-		if err := cmdLs(*jsonOut); err != nil {
+		if err := cmdLs(*jsonOut, *wideOut); err != nil {
 			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
