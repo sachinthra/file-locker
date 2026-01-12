@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -391,28 +392,32 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 }
 
 func cmdUpload(args []string) error {
-	if len(args) < 1 {
-		return errors.New("file path required")
-	}
-	path := args[0]
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("file not found: %s", path)
-	}
-
-	args = args[1:]
-
 	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
+
+	// Define your flags as usual
 	tags := fs.String("tags", "", "comma separated tags")
 	expire := fs.Int("expire", 0, "expiration time in hours")
+	verbose := fs.Bool("verbose", false, "enable verbose output")
 
-	if err := fs.Parse(args); err != nil {
+	// Use our custom parser wrapper
+	if err := ParseInterspersed(fs, args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
+
+	remainingArgs := fs.Args()
+	if len(remainingArgs) < 1 {
+		return errors.New("file path required")
+	}
+
+	path := remainingArgs[0]
 
 	token, err := loadToken()
 	if err != nil {
 		return err
+	}
+
+	if *verbose {
+		fmt.Printf("DEBUG: uploading %s (tags=%s, expire=%d, verbose=%v)\n", path, *tags, *expire, *verbose)
 	}
 
 	return uploadWithProgress(token, path, *tags, *expire)
@@ -421,12 +426,18 @@ func cmdUpload(args []string) error {
 func cmdDownload(args []string) error {
 	fs := flag.NewFlagSet("download", flag.ContinueOnError)
 	output := fs.String("o", "", "output filename (default: from server)")
-	fs.Parse(args)
-	args = fs.Args()
-	if len(args) < 1 {
+
+	// Use our custom parser wrapper
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	remainingArgs := fs.Args()
+	if len(remainingArgs) < 1 {
 		return errors.New("file id required")
 	}
-	id := args[0]
+	id := remainingArgs[0]
+
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -646,7 +657,10 @@ func cmdSearch(args []string) error {
 func cmdExport(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	output := fs.String("o", "filelocker-export.zip", "output filename")
-	fs.Parse(args)
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
 
 	token, err := loadToken()
 	if err != nil {
@@ -693,13 +707,16 @@ func cmdUpdate(args []string) error {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	tags := fs.String("tags", "", "comma separated tags")
 	name := fs.String("name", "", "new filename")
-	fs.Parse(args)
-	args = fs.Args()
 
-	if len(args) < 1 {
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+	remainingArgs := fs.Args()
+
+	if len(remainingArgs) < 1 {
 		return errors.New("file id required")
 	}
-	id := args[0]
+	id := remainingArgs[0]
 
 	if *tags == "" && *name == "" {
 		return errors.New("either --tags or --name required")
@@ -742,7 +759,10 @@ func cmdTokens(args []string) error {
 	subcmd := args[0]
 	switch subcmd {
 	case "list":
-		return cmdTokensList()
+		fs := flag.NewFlagSet("token_list", flag.ContinueOnError)
+		jsonOut := fs.Bool("json", false, "output json")
+		fs.Parse(args[1:])
+		return cmdTokensList(*jsonOut)
 	case "create":
 		return cmdTokensCreate(args[1:])
 	case "revoke":
@@ -752,7 +772,7 @@ func cmdTokens(args []string) error {
 	}
 }
 
-func cmdTokensList() error {
+func cmdTokensList(jsonOut bool) error {
 	token, err := loadToken()
 	if err != nil {
 		return err
@@ -768,20 +788,28 @@ func cmdTokensList() error {
 		return fmt.Errorf("failed to list tokens (status %d)", resp.StatusCode)
 	}
 
-	var tokens []struct {
-		ID        string     `json:"id"`
-		Name      string     `json:"name"`
-		CreatedAt time.Time  `json:"created_at"`
-		ExpiresAt *time.Time `json:"expires_at"`
-		LastUsed  *time.Time `json:"last_used"`
+	var result struct {
+		Tokens []struct {
+			ID        string     `json:"id"`
+			Name      string     `json:"name"`
+			CreatedAt time.Time  `json:"created_at"`
+			ExpiresAt *time.Time `json:"expires_at"`
+			LastUsed  *time.Time `json:"last_used_at"`
+		} `json:"tokens"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&tokens); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return err
 	}
 
-	if len(tokens) == 0 {
+	if len(result.Tokens) == 0 {
 		fmt.Println("No tokens found.")
+		return nil
+	}
+
+	if jsonOut {
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
 		return nil
 	}
 
@@ -789,7 +817,7 @@ func cmdTokensList() error {
 	fmt.Fprintf(w, "ID\tNAME\tCREATED\tEXPIRES\tLAST USED\n")
 	fmt.Fprintf(w, "---\t----\t-------\t-------\t---------\n")
 
-	for _, t := range tokens {
+	for _, t := range result.Tokens {
 		id := t.ID
 		if len(id) > 8 {
 			id = id[:8] + "..."
@@ -810,14 +838,19 @@ func cmdTokensList() error {
 }
 
 func cmdTokensCreate(args []string) error {
-	if len(args) < 1 {
-		return errors.New("token name required")
-	}
-	name := args[0]
-
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	expire := fs.String("expire", "", "expiration date (YYYY-MM-DD)")
-	fs.Parse(args[1:])
+
+	if err := ParseInterspersed(fs, args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	remainingArgs := fs.Args()
+
+	if len(remainingArgs) < 1 {
+		return errors.New("token name required")
+	}
+	name := remainingArgs[0]
 
 	token, err := loadToken()
 	if err != nil {
@@ -828,7 +861,11 @@ func cmdTokensCreate(args []string) error {
 		"name": name,
 	}
 	if *expire != "" {
-		payload["expires_at"] = *expire
+		days, err := strconv.Atoi(*expire)
+		if err != nil {
+			return fmt.Errorf("invalid expiration days: %w", err)
+		}
+		payload["expires_in_days"] = days
 	}
 
 	body, _ := json.Marshal(payload)
@@ -838,15 +875,14 @@ func cmdTokensCreate(args []string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to create token (status %d): %s", resp.StatusCode, string(b))
 	}
 
 	var result struct {
-		Token   string `json:"token"`
-		TokenID string `json:"token_id"`
-		Name    string `json:"name"`
+		Token string `json:"token"`
+		Name  string `json:"name"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -877,7 +913,7 @@ func cmdTokensRevoke(args []string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 204 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to revoke token (status %d): %s", resp.StatusCode, string(b))
 	}
@@ -1766,7 +1802,7 @@ func printUsage() {
 	fmt.Println("         <file_id> --name newname    Rename file")
 
 	fmt.Println("\n🔑 Personal Access Tokens:")
-	fmt.Println("  tokens list                        List all PATs")
+	fmt.Println("  tokens list [--json]               List all PATs (table or JSON)")
 	fmt.Println("  tokens create <name> [--expire]    Create new PAT")
 	fmt.Println("  tokens revoke <token_id>           Revoke PAT")
 
@@ -1891,4 +1927,73 @@ func main() {
 	default:
 		printUsage()
 	}
+}
+
+// ----------------------------------------------------------------
+// Flag Parsing Helpers
+// ----------------------------------------------------------------
+
+// ParseInterspersed behaves like "git" or "docker": flags can be anywhere.
+// It effectively sorts flags to the front and positional args to the back
+// before passing them to the standard library parser.
+func ParseInterspersed(fs *flag.FlagSet, args []string) error {
+	// 1. Learn which flags are Booleans (don't consume the next argument)
+	boolFlags := make(map[string]bool)
+	fs.VisitAll(func(f *flag.Flag) {
+		if isBoolFlag(f.Value) {
+			boolFlags[f.Name] = true
+		}
+	})
+
+	var flagArgs []string // args that belong to flags
+	var realArgs []string // args that are the file path(s)
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		// If it's not a flag, it's a positional argument (e.g., the filename)
+		if !strings.HasPrefix(arg, "-") {
+			realArgs = append(realArgs, arg)
+			continue
+		}
+
+		// Handle the special "--" terminator (stops flag parsing)
+		if arg == "--" {
+			realArgs = append(realArgs, args[i+1:]...)
+			break
+		}
+
+		// It is a flag. Keep it in the flag list.
+		flagArgs = append(flagArgs, arg)
+
+		// Check for inline values like --tags=foo (no next arg to consume)
+		if strings.Contains(arg, "=") {
+			continue
+		}
+
+		// Clean the flag name to check our map (remove -- or -)
+		name := strings.TrimLeft(arg, "-")
+
+		// If it's NOT a boolean, we must explicitly consume the next argument as its value
+		// (unless we are at the very end of the list)
+		if !boolFlags[name] {
+			if i+1 < len(args) {
+				flagArgs = append(flagArgs, args[i+1])
+				i++ // Advance loop since we consumed this arg
+			}
+		}
+	}
+
+	// 2. Combine: Flags first, then Positional args
+	allArgs := append(flagArgs, realArgs...)
+
+	return fs.Parse(allArgs)
+}
+
+// Helper to check if a flag is a boolean
+func isBoolFlag(v flag.Value) bool {
+	if fv, ok := v.(interface{ IsBoolFlag() bool }); ok {
+		return fv.IsBoolFlag()
+	}
+	return false
 }
