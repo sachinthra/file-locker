@@ -146,3 +146,16 @@ clean: ## Clean up build artifacts including Docker containers and volumes
 	@echo "$(RED)Cleaning artifacts...$(NC)"
 	rm -rf bin/ dist/ backend/bin frontend/dist
 	docker compose down -v
+
+# -----------------------------------------------------------------
+# DISTRIBUTION PACKAGING
+# -----------------------------------------------------------------
+deb-pi4: ## Build .deb installer for Raspberry Pi 4 (arm64)
+	@echo "Packing CLI binary for Raspberry Pi 4..."
+	mkdir -p dist/deb/opt/filelocker
+	cp bin/fl-linux-arm64 dist/deb/opt/filelocker/fl
+	chmod +x dist/deb/opt/filelocker/fl
+	mkdir -p dist/deb/DEBIAN
+	echo "Package: filelocker\nVersion: 1.0.0\nArchitecture: arm64\nMaintainer: Sachinthra\nDescription: File Locker CLI and deployment scripts for Raspberry Pi 4\n" > dist/deb/DEBIAN/control
+	dpkg-deb --build dist/deb dist/filelocker-pi4.deb
+	@echo "✅ .deb package built: dist/filelocker-pi4.deb"

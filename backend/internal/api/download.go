@@ -96,6 +96,6 @@ func (h *DownloadHandler) HandleDownload(w http.ResponseWriter, r *http.Request)
 
 	// Increment download counter (fire and forget)
 	go func() {
-		h.pgStore.IncrementDownloadCount(r.Context(), fileID)
+		_ = h.pgStore.IncrementDownloadCount(r.Context(), fileID)
 	}()
 }

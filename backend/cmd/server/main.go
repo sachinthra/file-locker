@@ -191,7 +191,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Post("/auth/login", authHandler.HandleLogin)
 			r.Post("/auth/register", authHandler.HandleRegister)
-			
+
 			// Serve OpenAPI documentation
 			r.Get("/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 				http.ServeFile(w, r, "./docs/openapi.yaml")

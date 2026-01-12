@@ -234,9 +234,10 @@ func (h *AuthHandler) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"user_id":  user.ID,
-		"username": user.Username,
-		"email":    user.Email,
-		"role":     user.Role,
+		"user_id":    user.ID,
+		"username":   user.Username,
+		"email":      user.Email,
+		"role":       user.Role,
+		"created_at": user.CreatedAt,
 	})
 }

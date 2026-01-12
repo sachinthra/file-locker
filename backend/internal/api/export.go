@@ -59,7 +59,7 @@ func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) 
 
 	// Create ZIP writer that writes directly to response
 	zipWriter := zip.NewWriter(w)
-	defer zipWriter.Close()
+	defer func() { _ = zipWriter.Close() }()
 
 	successCount := 0
 	failCount := 0
@@ -80,7 +80,7 @@ func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) 
 		key, err := base64.StdEncoding.DecodeString(metadata.EncryptionKey)
 		if err != nil {
 			log.Printf("[ERROR] Failed to decode encryption key for file %s: %v", metadata.FileID, err)
-			encryptedReader.Close()
+			defer func() { _ = encryptedReader.Close() }()
 			failCount++
 			continue
 		}
@@ -89,7 +89,7 @@ func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) 
 		decryptedReader, err := crypto.DecryptStream(encryptedReader, key)
 		if err != nil {
 			log.Printf("[ERROR] Failed to decrypt file %s: %v", metadata.FileID, err)
-			encryptedReader.Close()
+			defer func() { _ = encryptedReader.Close() }()
 			failCount++
 			continue
 		}
@@ -101,14 +101,14 @@ func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) 
 		zipFileWriter, err := zipWriter.Create(safeFileName)
 		if err != nil {
 			log.Printf("[ERROR] Failed to create ZIP entry for file %s: %v", metadata.FileID, err)
-			encryptedReader.Close()
+			defer func() { _ = encryptedReader.Close() }()
 			failCount++
 			continue
 		}
 
 		// Copy decrypted data to ZIP
 		written, err := io.Copy(zipFileWriter, decryptedReader)
-		encryptedReader.Close()
+		defer func() { _ = encryptedReader.Close() }()
 
 		if err != nil {
 			log.Printf("[ERROR] Failed to write file %s to ZIP: %v", metadata.FileID, err)
@@ -133,7 +133,7 @@ func (h *ExportHandler) HandleExportAll(w http.ResponseWriter, r *http.Request) 
 
 	readmeWriter, err := zipWriter.Create("README.txt")
 	if err == nil {
-		readmeWriter.Write([]byte(readmeContent))
+		_, _ = readmeWriter.Write([]byte(readmeContent))
 	}
 
 	log.Printf("[INFO] Export completed for user %s: %d success, %d failed", userID, successCount, failCount)

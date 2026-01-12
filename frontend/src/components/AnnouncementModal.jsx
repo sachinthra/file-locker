@@ -16,9 +16,24 @@ export default function AnnouncementModal({ announcement, onClose }) {
   };
 
   const typeColors = {
-    info: { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", icon: "#3b82f6" },
-    warning: { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", icon: "#f59e0b" },
-    critical: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", icon: "#ef4444" },
+    info: {
+      bg: "#dbeafe",
+      border: "#3b82f6",
+      text: "#1e40af",
+      icon: "#3b82f6",
+    },
+    warning: {
+      bg: "#fef3c7",
+      border: "#f59e0b",
+      text: "#92400e",
+      icon: "#f59e0b",
+    },
+    critical: {
+      bg: "#fee2e2",
+      border: "#ef4444",
+      text: "#991b1b",
+      icon: "#ef4444",
+    },
   };
 
   const colors = typeColors[announcement.type] || typeColors.info;

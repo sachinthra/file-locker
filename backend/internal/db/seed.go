@@ -18,7 +18,7 @@ func CreateDefaultAdmin(dbURL string, username, email, password string, logger *
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Test connection
 	if err := db.Ping(); err != nil {

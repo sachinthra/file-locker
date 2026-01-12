@@ -10,7 +10,8 @@ const ApiDocs = () => {
     document.head.appendChild(link);
 
     const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js";
+    script.src =
+      "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js";
     script.onload = () => {
       window.SwaggerUIBundle({
         url: "/api/v1/docs/openapi.yaml",

@@ -59,7 +59,7 @@ func (h *UploadHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "No file provided")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Check file size limit (500MB)
 	maxSize := int64(500 << 20)

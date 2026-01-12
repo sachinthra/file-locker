@@ -32,7 +32,9 @@ export default function NotificationCenter({
       const response = await api.get("/announcements");
       const allAnnouncements = response.data?.announcements || [];
       const dismissed = getDismissedAnnouncements();
-      setAnnouncements(allAnnouncements.filter((a) => !dismissed.includes(a.id)));
+      setAnnouncements(
+        allAnnouncements.filter((a) => !dismissed.includes(a.id)),
+      );
     } catch (err) {
       if (err.response?.status !== 401) {
         console.error("Failed to load announcements:", err);
@@ -54,7 +56,10 @@ export default function NotificationCenter({
       const dismissed = getDismissedAnnouncements();
       if (!dismissed.includes(announcementId)) {
         dismissed.push(announcementId);
-        localStorage.setItem("dismissedAnnouncements", JSON.stringify(dismissed));
+        localStorage.setItem(
+          "dismissedAnnouncements",
+          JSON.stringify(dismissed),
+        );
       }
     } catch (err) {
       console.error("Failed to save dismissed announcement:", err);
@@ -71,7 +76,8 @@ export default function NotificationCenter({
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length + announcements.length;
+  const unreadCount =
+    notifications.filter((n) => !n.read).length + announcements.length;
 
   const getIcon = (type) => {
     switch (type) {
@@ -220,10 +226,16 @@ export default function NotificationCenter({
                         {getIcon(announcement.type)}
                       </div>
                       <div class="notification-content">
-                        <p class="notification-message" style="font-weight: 600;">
+                        <p
+                          class="notification-message"
+                          style="font-weight: 600;"
+                        >
                           {announcement.title}
                         </p>
-                        <p class="notification-message" style="font-size: 0.85rem; margin-top: 0.25rem;">
+                        <p
+                          class="notification-message"
+                          style="font-size: 0.85rem; margin-top: 0.25rem;"
+                        >
                           {announcement.message}
                         </p>
                         <span class="notification-time">
@@ -232,7 +244,9 @@ export default function NotificationCenter({
                       </div>
                       <button
                         class="notification-close"
-                        onClick={() => handleDismissAnnouncement(announcement.id)}
+                        onClick={() =>
+                          handleDismissAnnouncement(announcement.id)
+                        }
                         title="Dismiss"
                       >
                         <svg
@@ -250,37 +264,37 @@ export default function NotificationCenter({
                   );
                 })}
                 {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  class={`notification-item ${!notification.read ? "unread" : ""}`}
-                >
-                  <div class="notification-icon">
-                    {getIcon(notification.type)}
-                  </div>
-                  <div class="notification-content">
-                    <p class="notification-message">{notification.message}</p>
-                    <span class="notification-time">
-                      {formatTime(notification.timestamp)}
-                    </span>
-                  </div>
-                  <button
-                    class="notification-close"
-                    onClick={() => onClear(notification.id)}
-                    title="Dismiss"
+                  <div
+                    key={notification.id}
+                    class={`notification-item ${!notification.read ? "unread" : ""}`}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
+                    <div class="notification-icon">
+                      {getIcon(notification.type)}
+                    </div>
+                    <div class="notification-content">
+                      <p class="notification-message">{notification.message}</p>
+                      <span class="notification-time">
+                        {formatTime(notification.timestamp)}
+                      </span>
+                    </div>
+                    <button
+                      class="notification-close"
+                      onClick={() => onClear(notification.id)}
+                      title="Dismiss"
                     >
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </>
             )}
           </div>

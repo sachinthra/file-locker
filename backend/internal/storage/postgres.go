@@ -74,7 +74,7 @@ func (p *PostgresStore) VerifyPersonalAccessToken(ctx context.Context, rawToken 
 		log.Printf("[store] VerifyPAT query error: %v", err)
 		return "", "", err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	count := 0
 	for rows.Next() {
 		count++
@@ -377,7 +377,7 @@ func (p *PostgresStore) ListUserFiles(ctx context.Context, userID string) ([]*Fi
 	if err != nil {
 		return nil, fmt.Errorf("failed to list files: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var files []*FileMetadata
 	for rows.Next() {
@@ -442,7 +442,7 @@ func (p *PostgresStore) SearchFiles(ctx context.Context, userID, query string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to search files: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var files []*FileMetadata
 	for rows.Next() {

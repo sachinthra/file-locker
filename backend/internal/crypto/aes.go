@@ -39,7 +39,7 @@ func EncryptStream(plaintext io.Reader, key []byte) (io.Reader, error) {
 	pr, pw := io.Pipe()
 
 	go func() {
-		defer pw.Close()
+		defer func() { _ = pw.Close() }()
 
 		// Write IV first
 		if _, err := pw.Write(iv); err != nil {
@@ -91,7 +91,7 @@ func DecryptStream(ciphertext io.Reader, key []byte) (io.Reader, error) {
 	pr, pw := io.Pipe()
 
 	go func() {
-		defer pw.Close()
+		defer func() { _ = pw.Close() }()
 
 		buf := make([]byte, 4096)
 		for {

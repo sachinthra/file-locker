@@ -19,7 +19,9 @@ export default function Admin({ isAuthenticated }) {
   const [settings, setSettings] = useState({});
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
   const [showUserSelectionModal, setShowUserSelectionModal] = useState(false);
-  const [selectedAnnouncementUsers, setSelectedAnnouncementUsers] = useState([]);
+  const [selectedAnnouncementUsers, setSelectedAnnouncementUsers] = useState(
+    [],
+  );
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     message: "",
@@ -684,9 +686,7 @@ export default function Admin({ isAuthenticated }) {
                     }}
                   >
                     <option value="all">All Users</option>
-                    <option value="specific_users">
-                      Specific Users
-                    </option>
+                    <option value="specific_users">Specific Users</option>
                   </select>
                 </div>
               </div>
@@ -718,7 +718,10 @@ export default function Admin({ isAuthenticated }) {
                             <button
                               type="button"
                               onClick={() => {
-                                const newSelected = selectedAnnouncementUsers.filter((id) => id !== userId);
+                                const newSelected =
+                                  selectedAnnouncementUsers.filter(
+                                    (id) => id !== userId,
+                                  );
                                 setSelectedAnnouncementUsers(newSelected);
                                 setNewAnnouncement({
                                   ...newAnnouncement,
@@ -1512,7 +1515,9 @@ export default function Admin({ isAuthenticated }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-              <h3 style="margin: 0; font-size: 1.25rem;">Select Users for Announcement</h3>
+              <h3 style="margin: 0; font-size: 1.25rem;">
+                Select Users for Announcement
+              </h3>
               <button
                 onClick={() => setShowUserSelectionModal(false)}
                 style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);"
@@ -1548,17 +1553,28 @@ export default function Admin({ isAuthenticated }) {
                   <label
                     key={u.id}
                     style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: background 0.2s;"
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--bg-secondary)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
                   >
                     <input
                       type="checkbox"
                       checked={selectedAnnouncementUsers.includes(u.id)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedAnnouncementUsers([...selectedAnnouncementUsers, u.id]);
+                          setSelectedAnnouncementUsers([
+                            ...selectedAnnouncementUsers,
+                            u.id,
+                          ]);
                         } else {
-                          setSelectedAnnouncementUsers(selectedAnnouncementUsers.filter((id) => id !== u.id));
+                          setSelectedAnnouncementUsers(
+                            selectedAnnouncementUsers.filter(
+                              (id) => id !== u.id,
+                            ),
+                          );
                         }
                       }}
                       style="width: 18px; height: 18px; cursor: pointer;"
@@ -1568,10 +1584,14 @@ export default function Admin({ isAuthenticated }) {
                     </div>
                     <div style="flex: 1;">
                       <div style="font-weight: 500;">{u.username}</div>
-                      <div style="font-size: 0.875rem; color: var(--text-secondary);">{u.email}</div>
+                      <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        {u.email}
+                      </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
-                      <span style={`padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; ${u.role === 'admin' ? 'background: var(--primary-color); color: white;' : 'background: var(--bg-secondary);'}`}>
+                      <span
+                        style={`padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; ${u.role === "admin" ? "background: var(--primary-color); color: white;" : "background: var(--bg-secondary);"}`}
+                      >
                         {u.role}
                       </span>
                     </div>

@@ -33,7 +33,10 @@ export default function AnnouncementBanner() {
       const dismissed = getDismissedAnnouncements();
       if (!dismissed.includes(announcementId)) {
         dismissed.push(announcementId);
-        localStorage.setItem("dismissedAnnouncements", JSON.stringify(dismissed));
+        localStorage.setItem(
+          "dismissedAnnouncements",
+          JSON.stringify(dismissed),
+        );
       }
     } catch (err) {
       console.error("Failed to save dismissed announcement:", err);
@@ -46,30 +49,38 @@ export default function AnnouncementBanner() {
       setLoading(false);
       return;
     }
-    
+
     try {
       const response = await api.get("/announcements");
       const allAnnouncements = response.data?.announcements || [];
       const dismissed = getDismissedAnnouncements();
-      
+
       // Filter out dismissed announcements
       const activeAnnouncements = allAnnouncements.filter(
-        (a) => !dismissed.includes(a.id)
+        (a) => !dismissed.includes(a.id),
       );
 
       setAnnouncements(activeAnnouncements);
 
-      console.log('[AnnouncementBanner] Loaded announcements:', activeAnnouncements.length);
-      
+      console.log(
+        "[AnnouncementBanner] Loaded announcements:",
+        activeAnnouncements.length,
+      );
+
       // Show first announcement as modal (box style)
       if (activeAnnouncements.length > 0) {
-        console.log('[AnnouncementBanner] Showing modal:', activeAnnouncements[0].title);
+        console.log(
+          "[AnnouncementBanner] Showing modal:",
+          activeAnnouncements[0].title,
+        );
         setModalAnnouncement(activeAnnouncements[0]);
       }
     } catch (err) {
       // Silently fail for 401 errors (not authenticated)
       if (err.response?.status === 401) {
-        console.log('[AnnouncementBanner] Not authenticated, skipping announcements');
+        console.log(
+          "[AnnouncementBanner] Not authenticated, skipping announcements",
+        );
       } else {
         console.error("Failed to load announcements:", err);
       }
@@ -84,30 +95,39 @@ export default function AnnouncementBanner() {
       markAsDismissed(announcementId);
       const remaining = announcements.filter((a) => a.id !== announcementId);
       setAnnouncements(remaining);
-      
-      console.log('[AnnouncementBanner] Dismissed:', announcementId);
-      console.log('[AnnouncementBanner] Remaining announcements:', remaining.length);
-      
+
+      console.log("[AnnouncementBanner] Dismissed:", announcementId);
+      console.log(
+        "[AnnouncementBanner] Remaining announcements:",
+        remaining.length,
+      );
+
       // Clear modal if it's the one being dismissed
       if (modalAnnouncement?.id === announcementId) {
         setModalAnnouncement(null);
         // Show next announcement as toast if available
         if (remaining.length > 0) {
-          console.log('[AnnouncementBanner] Showing next announcement as toast:', remaining[0].title);
+          console.log(
+            "[AnnouncementBanner] Showing next announcement as toast:",
+            remaining[0].title,
+          );
           setTimeout(() => {
             setToastAnnouncement(remaining[0]);
           }, 300);
         } else {
-          console.log('[AnnouncementBanner] No more announcements to show');
+          console.log("[AnnouncementBanner] No more announcements to show");
         }
       }
-      
+
       // Clear toast if it's the one being dismissed
       if (toastAnnouncement?.id === announcementId) {
         setToastAnnouncement(null);
         // Show next announcement as toast if available
         if (remaining.length > 0) {
-          console.log('[AnnouncementBanner] Showing next announcement as toast:', remaining[0].title);
+          console.log(
+            "[AnnouncementBanner] Showing next announcement as toast:",
+            remaining[0].title,
+          );
           setTimeout(() => {
             setToastAnnouncement(remaining[0]);
           }, 300);

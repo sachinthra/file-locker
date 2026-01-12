@@ -89,7 +89,7 @@ func (h *StreamHandler) handleFullStream(w http.ResponseWriter, r *http.Request,
 		respondError(w, http.StatusInternalServerError, "Failed to retrieve file")
 		return
 	}
-	defer encryptedStream.Close()
+	defer func() { _ = encryptedStream.Close() }()
 
 	// Use our existing helper which reads the IV from the first 16 bytes automatically
 	decryptedStream, err := crypto.DecryptStream(encryptedStream, keyBytes)
@@ -159,11 +159,11 @@ func (h *StreamHandler) handleRangeRequest(w http.ResponseWriter, r *http.Reques
 	}
 	iv := make([]byte, ivSize)
 	if _, err := io.ReadFull(ivStream, iv); err != nil {
-		ivStream.Close()
+		defer func() { _ = ivStream.Close() }()
 		respondError(w, http.StatusInternalServerError, "Failed to read IV")
 		return
 	}
-	ivStream.Close()
+	defer func() { _ = ivStream.Close() }()
 
 	// 4. Calculate the Counter for this specific block
 	// CTR mode works by encrypting (IV + Counter). We manually add blockNumber to IV.
@@ -180,7 +180,7 @@ func (h *StreamHandler) handleRangeRequest(w http.ResponseWriter, r *http.Reques
 		respondError(w, http.StatusInternalServerError, "Failed to retrieve file range")
 		return
 	}
-	defer encryptedStream.Close()
+	defer func() { _ = encryptedStream.Close() }()
 
 	// 6. Initialize Cipher
 	block, err := aes.NewCipher(keyBytes)

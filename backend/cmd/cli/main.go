@@ -340,7 +340,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 			_ = writer.WriteField("tags", tags)
 		}
 		if expireHours > 0 {
-			_ = writer.WriteField("expire_hours", fmt.Sprint(expireHours))
+			_ = writer.WriteField("expire_after", fmt.Sprint(expireHours))
 		}
 
 		writer.Close()
@@ -366,7 +366,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(b))
 	}
@@ -391,22 +391,30 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 }
 
 func cmdUpload(args []string) error {
-	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
-	tags := fs.String("tags", "", "comma separated tags")
-	expire := fs.Int("expire", 0, "expiration time in hours")
-	err := fs.Parse(args)
-	if err != nil {
-		return err
-	}
-	args = fs.Args()
 	if len(args) < 1 {
 		return errors.New("file path required")
 	}
 	path := args[0]
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return fmt.Errorf("file not found: %s", path)
+	}
+
+	args = args[1:]
+
+	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
+	tags := fs.String("tags", "", "comma separated tags")
+	expire := fs.Int("expire", 0, "expiration time in hours")
+
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
 	token, err := loadToken()
 	if err != nil {
 		return err
 	}
+
 	return uploadWithProgress(token, path, *tags, *expire)
 }
 
@@ -558,7 +566,7 @@ func cmdMe() error {
 	}
 
 	var user struct {
-		ID        string    `json:"id"`
+		ID        string    `json:"user_id"`
 		Username  string    `json:"username"`
 		Email     string    `json:"email"`
 		Role      string    `json:"role"`
@@ -960,11 +968,14 @@ func cmdAnnouncementsList() error {
 	}
 
 	for i, a := range announcements {
-		emoji := "ℹ️"
-		if a.Severity == "warning" {
+		var emoji string
+		switch a.Severity {
+		case "warning":
 			emoji = "⚠️"
-		} else if a.Severity == "error" {
+		case "error":
 			emoji = "❌"
+		default:
+			emoji = "ℹ️"
 		}
 		fmt.Printf("%s [%s] %s\n", emoji, a.Severity, a.Title)
 		fmt.Printf("   %s\n", a.Message)
@@ -1426,8 +1437,8 @@ func cmdAdminFilesList() error {
 
 	var result struct {
 		Files []struct {
-			ID       string `json:"file_id"`
-			FileName string `json:"file_name"`
+			ID       string `json:"id"`
+			FileName string `json:"filename"`
 			Size     int64  `json:"size"`
 		} `json:"files"`
 	}

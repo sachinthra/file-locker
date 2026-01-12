@@ -140,7 +140,7 @@ func (h *AdminHandler) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"Failed to get users"}`, http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var users []UserInfo
 	for rows.Next() {
@@ -247,13 +247,13 @@ func (h *AdminHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 
 	// Log audit action
 	adminID := r.Context().Value(constants.UserIDKey).(string)
-	h.auditLogger.LogAdminAction(ctx, adminID, "USER_DELETED", "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "USER_DELETED", "user", userID, map[string]interface{}{
 		"username":      user.Username,
 		"files_deleted": len(files),
 	}, GetClientIP(r))
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":       fmt.Sprintf("User %s deleted successfully", user.Username),
 		"files_deleted": len(files),
 	})
@@ -315,14 +315,14 @@ func (h *AdminHandler) HandleUpdateUserStatus(w http.ResponseWriter, r *http.Req
 	if req.IsActive {
 		action = "USER_ACTIVATED"
 	}
-	h.auditLogger.LogAdminAction(ctx, adminID, action, "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, action, "user", userID, map[string]interface{}{
 		"username": user.Username,
 	}, GetClientIP(r))
 
 	log.Printf("[admin] User %s status changed to active=%v by %s", user.Username, req.IsActive, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":   "User status updated successfully",
 		"is_active": req.IsActive,
 	})
@@ -378,7 +378,7 @@ func (h *AdminHandler) HandleUpdateUserRole(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "ROLE_CHANGED", "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "ROLE_CHANGED", "user", userID, map[string]interface{}{
 		"username": user.Username,
 		"old_role": oldRole,
 		"new_role": req.Role,
@@ -387,7 +387,7 @@ func (h *AdminHandler) HandleUpdateUserRole(w http.ResponseWriter, r *http.Reque
 	log.Printf("[admin] User %s role changed from %s to %s by %s", user.Username, oldRole, req.Role, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "User role updated successfully",
 		"role":    req.Role,
 	})
@@ -443,10 +443,10 @@ func (h *AdminHandler) HandleResetUserPassword(w http.ResponseWriter, r *http.Re
 	}
 
 	// Revoke all user sessions to force re-login
-	h.redisCache.DeleteUserSessions(ctx, userID)
+	_, _ = h.redisCache.DeleteUserSessions(ctx, userID)
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "PASSWORD_RESET", "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "PASSWORD_RESET", "user", userID, map[string]interface{}{
 		"username": user.Username,
 	}, GetClientIP(r))
 
@@ -485,7 +485,7 @@ func (h *AdminHandler) HandleForceLogoutUser(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "FORCE_LOGOUT", "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "FORCE_LOGOUT", "user", userID, map[string]interface{}{
 		"username":         user.Username,
 		"sessions_revoked": count,
 	}, GetClientIP(r))
@@ -531,7 +531,7 @@ func (h *AdminHandler) HandleGetAuditLogs(w http.ResponseWriter, r *http.Request
 		http.Error(w, `{"error":"Failed to get audit logs"}`, http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type AuditLogEntry struct {
 		ID            string         `json:"id"`
@@ -611,7 +611,7 @@ func (h *AdminHandler) HandleGetAllFiles(w http.ResponseWriter, r *http.Request)
 		http.Error(w, `{"error":"Failed to get files"}`, http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type FileEntry struct {
 		ID          string         `json:"id"`
@@ -694,7 +694,7 @@ func (h *AdminHandler) HandleDeleteAnyFile(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "FILE_DELETED", "file", fileID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "FILE_DELETED", "file", fileID, map[string]interface{}{
 		"filename": file.FileName,
 		"owner_id": file.UserID,
 	}, GetClientIP(r))
@@ -734,7 +734,7 @@ func (h *AdminHandler) HandleGetPendingUsers(w http.ResponseWriter, r *http.Requ
 		http.Error(w, `{"error":"Failed to get pending users"}`, http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type PendingUser struct {
 		ID            string `json:"id"`
@@ -812,7 +812,7 @@ func (h *AdminHandler) HandleApproveUser(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "USER_APPROVED", "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "USER_APPROVED", "user", userID, map[string]interface{}{
 		"username": user.Username,
 		"email":    user.Email,
 	}, GetClientIP(r))
@@ -860,7 +860,7 @@ func (h *AdminHandler) HandleRejectUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "USER_REJECTED", "user", userID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "USER_REJECTED", "user", userID, map[string]interface{}{
 		"username": user.Username,
 		"email":    user.Email,
 	}, GetClientIP(r))
@@ -889,7 +889,7 @@ func (h *AdminHandler) HandleGetSettings(w http.ResponseWriter, r *http.Request)
 		http.Error(w, `{"error":"Failed to get settings"}`, http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type Setting struct {
 		Key         string `json:"key"`
@@ -947,7 +947,7 @@ func (h *AdminHandler) HandleUpdateSetting(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "SETTING_UPDATED", "system", "", map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "SETTING_UPDATED", "system", "", map[string]interface{}{
 		"key":   req.Key,
 		"value": req.Value,
 	}, GetClientIP(r))
@@ -1037,7 +1037,7 @@ func (h *AdminHandler) HandleGetAnnouncements(w http.ResponseWriter, r *http.Req
 		http.Error(w, `{"error":"Failed to get announcements"}`, http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type Announcement struct {
 		ID              string       `json:"id"`
@@ -1171,7 +1171,7 @@ func (h *AdminHandler) HandleCreateAnnouncement(w http.ResponseWriter, r *http.R
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "ANNOUNCEMENT_CREATED", "announcement", announcementID, map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "ANNOUNCEMENT_CREATED", "announcement", announcementID, map[string]interface{}{
 		"title": req.Title,
 		"type":  req.Type,
 	}, GetClientIP(r))
@@ -1212,7 +1212,7 @@ func (h *AdminHandler) HandleDeleteAnnouncement(w http.ResponseWriter, r *http.R
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "ANNOUNCEMENT_DELETED", "announcement", announcementID, nil, GetClientIP(r))
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "ANNOUNCEMENT_DELETED", "announcement", announcementID, nil, GetClientIP(r))
 
 	log.Printf("[admin] Announcement %s deleted by %s", announcementID, adminID)
 
@@ -1273,7 +1273,7 @@ func (h *AdminHandler) HandleAnalyzeStorage(w http.ResponseWriter, r *http.Reque
 		http.Error(w, `{"error":"Failed to query database"}`, http.StatusInternalServerError)
 		return
 	}
-	defer dbRows.Close()
+	defer func() { _ = dbRows.Close() }()
 
 	dbFiles := make(map[string]string) // minio_path -> file_id
 	for dbRows.Next() {
@@ -1333,7 +1333,7 @@ func (h *AdminHandler) HandleAnalyzeStorage(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "STORAGE_ANALYZED", "system", "", map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "STORAGE_ANALYZED", "system", "", map[string]interface{}{
 		"total_db_files":      len(dbFiles),
 		"total_minio_objects": len(minioObjects),
 		"orphaned_files":      len(orphanedFiles),
@@ -1399,7 +1399,7 @@ func (h *AdminHandler) HandleCleanupStorage(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Log audit action
-	h.auditLogger.LogAdminAction(ctx, adminID, "STORAGE_CLEANED", "system", "", map[string]interface{}{
+	_ = h.auditLogger.LogAdminAction(ctx, adminID, "STORAGE_CLEANED", "system", "", map[string]interface{}{
 		"deleted_orphaned": deletedOrphaned,
 		"deleted_ghosts":   deletedGhosts,
 		"orphaned_errors":  len(orphanedErrors),
