@@ -631,6 +631,8 @@ func cmdMe() error {
 func cmdSearch(args []string) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
 	jsonOut := fs.Bool("json", false, "output json")
+	wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
+	fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
 
 	if err := ParseInterspersed(fs, args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -684,12 +686,17 @@ func cmdSearch(args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	_, _ = fmt.Fprintf(w, "ID\tNAME\tSIZE\tTAGS\n")
-	_, _ = fmt.Fprintf(w, "---\t----\t----\t----\n")
+	if *wideOut {
+		_, _ = fmt.Fprintf(w, "FILE ID\tNAME\tSIZE\tTAGS\n")
+		_, _ = fmt.Fprintf(w, "-------\t----\t----\t----\n")
+	} else {
+		_, _ = fmt.Fprintf(w, "ID\tNAME\tSIZE\tTAGS\n")
+		_, _ = fmt.Fprintf(w, "---\t----\t----\t----\n")
+	}
 
 	for _, f := range result.Files {
 		id := f.ID
-		if len(id) > 8 {
+		if !*wideOut && len(id) > 8 {
 			id = id[:8] + "..."
 		}
 		tags := strings.Join(f.Tags, ", ")
@@ -1044,36 +1051,38 @@ func cmdAnnouncementsList() error {
 		return fmt.Errorf("failed to list announcements (status %d)", resp.StatusCode)
 	}
 
-	var announcements []struct {
-		ID       string `json:"id"`
-		Title    string `json:"title"`
-		Message  string `json:"message"`
-		Severity string `json:"severity"`
+	var result struct {
+		Announcements []struct {
+			ID       string `json:"id"`
+			Title    string `json:"title"`
+			Message  string `json:"message"`
+			Severity string `json:"type"`
+		} `json:"announcements"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&announcements); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return err
 	}
 
-	if len(announcements) == 0 {
+	if len(result.Announcements) == 0 {
 		fmt.Println("No announcements.")
 		return nil
 	}
 
-	for i, a := range announcements {
+	for i, a := range result.Announcements {
 		var emoji string
 		switch a.Severity {
 		case "warning":
 			emoji = "⚠️"
-		case "error":
+		case "critical":
 			emoji = "❌"
 		default:
 			emoji = "ℹ️"
 		}
 		fmt.Printf("%s [%s] %s\n", emoji, a.Severity, a.Title)
-		fmt.Printf("   %s\n", a.Message)
-		fmt.Printf("   ID: %s\n", a.ID)
-		if i < len(announcements)-1 {
+		fmt.Printf("   Message:%s\n", a.Message)
+		fmt.Printf("        ID: %s\n", a.ID)
+		if i < len(result.Announcements)-1 {
 			fmt.Println()
 		}
 	}
@@ -1738,12 +1747,15 @@ func cmdAdminLogs(args []string) error {
 
 	var result struct {
 		Logs []struct {
-			ID        string    `json:"id"`
-			UserID    string    `json:"user_id"`
-			Action    string    `json:"action"`
-			Details   string    `json:"details"`
-			IPAddress string    `json:"ip_address"`
-			Timestamp time.Time `json:"timestamp"`
+			ID        string `json:"id"`
+			UserID    string `json:"actor_id"`
+			Action    string `json:"action"`
+			Details   []byte `json:"metadata"`
+			IPAddress struct {
+				String string `json:"String"`
+				Valid  bool   `json:"Valid"`
+			} `json:"ip_address"`
+			Timestamp string `json:"created_at"`
 		} `json:"logs"`
 	}
 
@@ -1752,12 +1764,20 @@ func cmdAdminLogs(args []string) error {
 	}
 
 	for _, log := range result.Logs {
+		ipAddr := "unknown"
+		if log.IPAddress.Valid {
+			ipAddr = log.IPAddress.String
+		}
+		details := string(log.Details)
+		if details == "" || details == "null" {
+			details = "-"
+		}
 		fmt.Printf("[%s] %s - %s (%s) - %s\n",
-			log.Timestamp.Format("2006-01-02 15:04:05"),
+			log.Timestamp,
 			log.Action,
 			log.UserID[:8]+"...",
-			log.IPAddress,
-			log.Details)
+			ipAddr,
+			details)
 	}
 	return nil
 }
@@ -1804,19 +1824,21 @@ func cmdAdminAnnouncementsList(jsonOut bool, wideOut bool) error {
 		return fmt.Errorf("failed to list announcements (status %d)", resp.StatusCode)
 	}
 
-	var announcements []struct {
-		ID       string `json:"id"`
-		Title    string `json:"title"`
-		Message  string `json:"message"`
-		Severity string `json:"severity"`
+	var result struct {
+		Announcements []struct {
+			ID       string `json:"id"`
+			Title    string `json:"title"`
+			Message  string `json:"message"`
+			Severity string `json:"severity"`
+		} `json:"announcements"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&announcements); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return err
 	}
 
 	if jsonOut {
-		b, _ := json.Marshal(announcements)
+		b, _ := json.Marshal(result)
 		fmt.Println(string(b))
 		return nil
 	}
@@ -1830,7 +1852,12 @@ func cmdAdminAnnouncementsList(jsonOut bool, wideOut bool) error {
 		_, _ = fmt.Fprintf(w, "---\t--------\t-----\n")
 	}
 
-	for _, a := range announcements {
+	if len(result.Announcements) == 0 {
+		fmt.Println("No announcements.")
+		return nil
+	}
+
+	for _, a := range result.Announcements {
 		id := a.ID
 		if !wideOut && len(id) > 8 {
 			id = id[:8] + "..."
@@ -1986,7 +2013,7 @@ func printUsage() {
 		fmt.Println("  admin stats                        System statistics")
 		fmt.Println("  admin users                        User management")
 		fmt.Println("  admin files                        File management")
-		fmt.Println("  admin storage                      Storage operations")
+		fmt.Println("  admin storage [analyze/cleanup]    Storage operations")
 		fmt.Println("  admin logs                         Audit logs")
 		fmt.Println("  admin announcements                Announcement management")
 		fmt.Println("  admin settings                     System settings")
