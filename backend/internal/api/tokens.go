@@ -76,7 +76,7 @@ func (h *TokensHandler) HandleCreateToken(w http.ResponseWriter, r *http.Request
 		"token":      raw,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 // GET /api/auth/tokens
@@ -89,7 +89,7 @@ func (h *TokensHandler) HandleListTokens(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "failed list tokens", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []map[string]interface{}{}
 	for rows.Next() {
 		var id, name string
@@ -113,7 +113,7 @@ func (h *TokensHandler) HandleListTokens(w http.ResponseWriter, r *http.Request)
 		out = append(out, rec)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"tokens": out})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"tokens": out})
 }
 
 // DELETE /api/auth/tokens/{id}

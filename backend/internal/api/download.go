@@ -74,7 +74,7 @@ func (h *DownloadHandler) HandleDownload(w http.ResponseWriter, r *http.Request)
 		respondError(w, http.StatusInternalServerError, "Failed to retrieve file from storage")
 		return
 	}
-	defer encryptedStream.Close()
+	defer func() { _ = encryptedStream.Close() }()
 
 	// Decrypt stream
 	decryptedStream, err := crypto.DecryptStream(encryptedStream, keyBytes)

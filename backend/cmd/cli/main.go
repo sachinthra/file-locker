@@ -119,7 +119,7 @@ func isAdmin() bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return false
@@ -309,7 +309,7 @@ func cmdLs(jsonOut bool, wideOut bool) error {
 
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", id, f.FileName, size, uploaded, expires)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	return nil
 }
@@ -352,7 +352,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 
 	// Write multipart form in goroutine
 	go func() {
-		defer pw.Close()
+		defer func() { _ = pw.Close() }()
 
 		// Add file part
 		part, err := writer.CreateFormFile("file", filepath.Base(path))
@@ -376,7 +376,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 			_ = writer.WriteField("expire_after", fmt.Sprint(expireHours))
 		}
 
-		writer.Close()
+		_ = writer.Close()
 		done <- nil
 	}()
 
@@ -397,7 +397,7 @@ func uploadWithProgress(token, path string, tags string, expireHours int) error 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
@@ -479,7 +479,7 @@ func cmdDownload(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -507,7 +507,7 @@ func cmdDownload(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Create progress bar
 	total := resp.ContentLength
@@ -543,7 +543,7 @@ func cmdDownload(args []string) error {
 
 func cmdRm(args []string) error {
 	fs := flag.NewFlagSet("rm", flag.ContinueOnError)
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	args = fs.Args()
 	if len(args) < 1 {
 		return errors.New("file id required")
@@ -558,7 +558,7 @@ func cmdRm(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		b, _ := io.ReadAll(resp.Body)
@@ -579,7 +579,7 @@ func cmdLogout() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Clear config
 	cfg := CLIConfig{BaseURL: getBaseURL()}
@@ -601,7 +601,7 @@ func cmdMe() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -653,7 +653,7 @@ func cmdSearch(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("search failed (status %d)", resp.StatusCode)
@@ -725,7 +725,7 @@ func cmdExport(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -736,7 +736,7 @@ func cmdExport(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	total := resp.ContentLength
 	bar := progressbar.NewOptions64(
@@ -794,7 +794,7 @@ func cmdUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -817,7 +817,7 @@ func cmdTokens(args []string) error {
 		jsonOut := fs.Bool("json", false, "output json")
 		wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
 		fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 		return cmdTokensList(*jsonOut, *wideOut)
 	case "create":
 		return cmdTokensCreate(args[1:])
@@ -838,7 +838,7 @@ func cmdTokensList(jsonOut bool, wideOut bool) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to list tokens (status %d)", resp.StatusCode)
@@ -934,7 +934,7 @@ func cmdTokensCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -972,7 +972,7 @@ func cmdTokensRevoke(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 204 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1011,7 +1011,7 @@ func cmdPassword(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1045,7 +1045,7 @@ func cmdAnnouncementsList() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to list announcements (status %d)", resp.StatusCode)
@@ -1104,7 +1104,7 @@ func cmdAnnouncementsDismiss(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1157,7 +1157,7 @@ func cmdAdminStats() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to get stats (status %d)", resp.StatusCode)
@@ -1240,7 +1240,7 @@ func cmdAdminUsersList(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to list users (status %d)", resp.StatusCode)
@@ -1300,7 +1300,7 @@ func cmdAdminUsersApprove(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1326,7 +1326,7 @@ func cmdAdminUsersReject(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1352,7 +1352,7 @@ func cmdAdminUsersDelete(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1381,7 +1381,7 @@ func cmdAdminUsersStatus(userID string, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1410,7 +1410,7 @@ func cmdAdminUsersRole(userID string, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1431,7 +1431,7 @@ func cmdAdminUsersResetPassword(userID string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1462,7 +1462,7 @@ func cmdAdminUsersLogout(userID string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1495,7 +1495,7 @@ func cmdAdminSettingsGet() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to get settings (status %d)", resp.StatusCode)
@@ -1526,7 +1526,7 @@ func cmdAdminSettingsUpdate(key, value string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1564,7 +1564,7 @@ func cmdAdminFilesList(jsonOut bool, wideOut bool) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to list files (status %d)", resp.StatusCode)
@@ -1618,7 +1618,7 @@ func cmdAdminFilesDelete(id string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1655,7 +1655,7 @@ func cmdAdminStorageAnalyze() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to analyze storage (status %d)", resp.StatusCode)
@@ -1690,7 +1690,7 @@ func cmdAdminStorageCleanup() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1739,7 +1739,7 @@ func cmdAdminLogs(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to get logs (status %d)", resp.StatusCode)
@@ -1818,7 +1818,7 @@ func cmdAdminAnnouncementsList(jsonOut bool, wideOut bool) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to list announcements (status %d)", resp.StatusCode)
@@ -1898,7 +1898,7 @@ func cmdAdminAnnouncementsCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
@@ -1924,7 +1924,7 @@ func cmdAdminAnnouncementsDelete(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -2054,7 +2054,7 @@ func main() {
 		jsonOut := fs.Bool("json", false, "output json")
 		wideOut := fs.Bool("wide", false, "show full IDs and additional columns")
 		fs.BoolVar(wideOut, "w", false, "shorthand for --wide")
-		fs.Parse(os.Args[2:])
+		_ = fs.Parse(os.Args[2:])
 		if err := cmdLs(*jsonOut, *wideOut); err != nil {
 			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)

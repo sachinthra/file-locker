@@ -195,7 +195,7 @@ func (a *AuthMiddleware) RateLimitMiddleware(requests int, window time.Duration)
 			if count > int64(requests) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				fmt.Fprintf(w, `{"error":"Rate limit exceeded","retry_after":%d}`, int(window.Seconds()))
+				_, _ = fmt.Fprintf(w, `{"error":"Rate limit exceeded","retry_after":%d}`, int(window.Seconds()))
 				return
 			}
 

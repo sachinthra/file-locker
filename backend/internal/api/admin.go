@@ -306,7 +306,7 @@ func (h *AdminHandler) HandleUpdateUserStatus(w http.ResponseWriter, r *http.Req
 
 	// If suspending user, revoke all their sessions
 	if !req.IsActive {
-		h.redisCache.DeleteUserSessions(ctx, userID)
+		_, _ = h.redisCache.DeleteUserSessions(ctx, userID)
 		log.Printf("[admin] Revoked all sessions for suspended user: %s", userID)
 	}
 
@@ -453,7 +453,7 @@ func (h *AdminHandler) HandleResetUserPassword(w http.ResponseWriter, r *http.Re
 	log.Printf("[admin] Password reset for user %s by admin %s", user.Username, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Password reset successfully. User sessions revoked.",
 	})
 }
@@ -493,7 +493,7 @@ func (h *AdminHandler) HandleForceLogoutUser(w http.ResponseWriter, r *http.Requ
 	log.Printf("[admin] Force logged out user %s (%d sessions revoked) by %s", user.Username, count, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":          "User logged out successfully",
 		"sessions_revoked": count,
 	})
@@ -579,7 +579,7 @@ func (h *AdminHandler) HandleGetAuditLogs(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"logs":  logs,
 		"count": len(logs),
 		"limit": limit,
@@ -653,7 +653,7 @@ func (h *AdminHandler) HandleGetAllFiles(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"files": files,
 		"count": len(files),
 	})
@@ -702,7 +702,7 @@ func (h *AdminHandler) HandleDeleteAnyFile(w http.ResponseWriter, r *http.Reques
 	log.Printf("[admin] Admin %s deleted file %s (owner: %s)", adminID, file.FileName, file.UserID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "File deleted successfully",
 	})
 }
@@ -772,7 +772,7 @@ func (h *AdminHandler) HandleGetPendingUsers(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"pending_users": users,
 		"count":         len(users),
 	})
@@ -820,7 +820,7 @@ func (h *AdminHandler) HandleApproveUser(w http.ResponseWriter, r *http.Request)
 	log.Printf("[admin] User %s approved by %s", user.Username, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "User approved successfully",
 		"user_id": userID,
 	})
@@ -868,7 +868,7 @@ func (h *AdminHandler) HandleRejectUser(w http.ResponseWriter, r *http.Request) 
 	log.Printf("[admin] User %s rejected by %s", user.Username, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "User rejected successfully",
 		"user_id": userID,
 	})
@@ -907,7 +907,7 @@ func (h *AdminHandler) HandleGetSettings(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"settings": settings,
 	})
 }
@@ -955,7 +955,7 @@ func (h *AdminHandler) HandleUpdateSetting(w http.ResponseWriter, r *http.Reques
 	log.Printf("[admin] Setting %s updated to %s by %s", req.Key, req.Value, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Setting updated successfully",
 		"key":     req.Key,
 		"value":   req.Value,
@@ -1100,7 +1100,7 @@ func (h *AdminHandler) HandleGetAnnouncements(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"announcements": announcements,
 		"count":         len(announcements),
 	})
@@ -1179,7 +1179,7 @@ func (h *AdminHandler) HandleCreateAnnouncement(w http.ResponseWriter, r *http.R
 	log.Printf("[admin] Announcement created by %s: %s", adminID, req.Title)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Announcement created successfully",
 		"id":      announcementID,
 	})
@@ -1217,7 +1217,7 @@ func (h *AdminHandler) HandleDeleteAnnouncement(w http.ResponseWriter, r *http.R
 	log.Printf("[admin] Announcement %s deleted by %s", announcementID, adminID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Announcement deleted successfully",
 	})
 }
@@ -1249,7 +1249,7 @@ func (h *AdminHandler) HandleDismissAnnouncement(w http.ResponseWriter, r *http.
 	log.Printf("[user] User %s dismissed announcement %s", userID, announcementID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Announcement dismissed successfully",
 	})
 }
@@ -1344,7 +1344,7 @@ func (h *AdminHandler) HandleAnalyzeStorage(w http.ResponseWriter, r *http.Reque
 		len(orphanedFiles), len(ghostRecords))
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"total_db_files":      len(dbFiles),
 		"total_minio_objects": len(minioObjects),
 		"orphaned_files":      orphanedFiles,
@@ -1410,7 +1410,7 @@ func (h *AdminHandler) HandleCleanupStorage(w http.ResponseWriter, r *http.Reque
 		deletedOrphaned, deletedGhosts)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":          "Storage cleanup completed",
 		"deleted_orphaned": deletedOrphaned,
 		"deleted_ghosts":   deletedGhosts,

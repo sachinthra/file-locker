@@ -539,7 +539,7 @@ func (p *PostgresStore) GetExpiredFiles(ctx context.Context) ([]*FileMetadata, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expired files: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var files []*FileMetadata
 	for rows.Next() {
